@@ -55,6 +55,15 @@ class GitHubProvider {
     ], { encoding: 'utf8', timeout: 30000 });
     return output.trim();
   }
+
+  postPRComment(repo, prNumber, comment) {
+    const fullRepo = repo.includes('/') ? repo : `${this.org}/${repo}`;
+    return execFileSync('gh', [
+      'pr', 'comment', String(prNumber),
+      '--repo', fullRepo,
+      '--body', comment
+    ], { encoding: 'utf8', timeout: 30000 });
+  }
 }
 
 function createProvider(provider, org) {

@@ -1537,7 +1537,7 @@ app.get('/api/claude/log', (req, res) => {
 });
 
 // --- Pipeline Runs (Postgres-backed) ---
-const pipelineRunsRouter = require('./routes/pipeline');
+const { router: pipelineRunsRouter } = require('./routes/pipeline');
 app.use('/api/pipeline', pipelineRunsRouter);
 
 app.listen(PORT, () => {
