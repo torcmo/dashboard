@@ -100,6 +100,13 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+// Stages that retry on transient failures (git push, server start).
+// Claude Code stages (build, review) do NOT retry — bad prompt = bad prompt.
+const RETRYABLE_STAGES = new Set(['pr', 'merge', 'deploy']);
+
+// Exponential backoff delays: 5s, 15s, 45s
+const RETRY_DELAYS_MS = [5000, 15000, 45000];
+
 // --- Stage Executors ---
 
 // STAGE 1: BUILD — run Claude Code to generate/modify code
@@ -356,53 +363,74 @@ const EXECUTORS = {
   deploy: executeDeploy
 };
 
-// Execute a single stage: marks running, calls executor, marks passed/failed, records duration
+// Execute a single stage with retry logic for transient failures.
+// Retryable stages (pr, merge, deploy) use exponential backoff: 5s, 15s, 45s.
+// Claude Code stages never retry. Retry count is persisted in pipeline_stages.
 async function executeStageWithTracking(run, stageName, stageRow) {
   const startedAt = new Date();
+  const executor = EXECUTORS[stageName];
+  if (!executor) throw new Error(`Unknown stage: ${stageName}`);
 
-  await updateStage(stageRow.id, {
-    status: 'running',
-    startedAt: startedAt.toISOString()
-  });
+  const maxRetries = RETRYABLE_STAGES.has(stageName) ? STAGE_DEFAULTS[stageName].retries : 0;
+  let lastErr = null;
+  let retryCount = 0;
 
-  await updateRun(run.id, { currentStage: stageName });
-
-  try {
-    const executor = EXECUTORS[stageName];
-    if (!executor) throw new Error(`Unknown stage: ${stageName}`);
-
-    const result = await executor(run, stageRow);
-    const durationMs = Date.now() - startedAt.getTime();
-
-    await updateStage(stageRow.id, {
-      status: 'passed',
-      output: (result.output || '').slice(0, 50000),
-      costUsd: result.costUsd || 0,
-      durationMs,
-      completedAt: new Date().toISOString()
-    });
-
-    // Accumulate cost on the run
-    if (result.costUsd > 0) {
-      await pool.query(
-        'UPDATE pipeline_runs SET cost_usd = cost_usd + $1 WHERE id = $2',
-        [result.costUsd, run.id]
-      );
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Wait before retry (skip delay on first attempt)
+    if (attempt > 0) {
+      const delay = RETRY_DELAYS_MS[attempt - 1] || RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+      console.log(`[pipeline-stages] Retrying ${stageName} (attempt ${attempt + 1}/${maxRetries + 1}) after ${delay}ms`);
+      await sleep(delay);
+      retryCount = attempt;
+      await updateStage(stageRow.id, { retryCount });
     }
 
-    return result;
-  } catch (err) {
-    const durationMs = Date.now() - startedAt.getTime();
-
     await updateStage(stageRow.id, {
-      status: 'failed',
-      error: (err.message || String(err)).slice(0, 10000),
-      durationMs,
-      completedAt: new Date().toISOString()
+      status: 'running',
+      startedAt: startedAt.toISOString()
     });
+    await updateRun(run.id, { currentStage: stageName });
 
-    throw err;
+    try {
+      const result = await executor(run, stageRow);
+      const durationMs = Date.now() - startedAt.getTime();
+
+      await updateStage(stageRow.id, {
+        status: 'passed',
+        output: (result.output || '').slice(0, 50000),
+        costUsd: result.costUsd || 0,
+        durationMs,
+        retryCount,
+        completedAt: new Date().toISOString()
+      });
+
+      // Accumulate cost on the run
+      if (result.costUsd > 0) {
+        await pool.query(
+          'UPDATE pipeline_runs SET cost_usd = cost_usd + $1 WHERE id = $2',
+          [result.costUsd, run.id]
+        );
+      }
+
+      return result;
+    } catch (err) {
+      lastErr = err;
+      // If more retries remain, continue the loop
+      if (attempt < maxRetries) continue;
+    }
   }
+
+  // All attempts exhausted — mark as failed
+  const durationMs = Date.now() - startedAt.getTime();
+  await updateStage(stageRow.id, {
+    status: 'failed',
+    error: (lastErr.message || String(lastErr)).slice(0, 10000),
+    durationMs,
+    retryCount,
+    completedAt: new Date().toISOString()
+  });
+
+  throw lastErr;
 }
 
 module.exports = { STAGES, STAGE_DEFAULTS, executeStageWithTracking, updateRun };
