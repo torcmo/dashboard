@@ -363,4 +363,178 @@ router.post('/runs/:id/retry', validate(RetryBody), async (req, res) => {
   }
 });
 
+// --- GET /api/pipeline/runs/:id/logs — SSE stream of stage output (real-time poll) ---
+
+router.get('/runs/:id/logs', async (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive'
+  });
+
+  const runId = req.params.id;
+  let lastStageStatus = {};
+  let lastOutput = {};
+  let closed = false;
+
+  req.on('close', () => { closed = true; });
+
+  // Send initial snapshot then poll every 2s for changes
+  async function poll() {
+    if (closed) return;
+
+    try {
+      const { rows: runRows } = await pool.query(
+        'SELECT status, current_stage FROM pipeline_runs WHERE id = $1', [runId]
+      );
+      if (runRows.length === 0) {
+        res.write('data: {"type":"error","message":"Run not found"}\n\n');
+        res.end();
+        return;
+      }
+
+      const run = runRows[0];
+
+      const { rows: stages } = await pool.query(
+        'SELECT stage, status, output, error, duration_ms, cost_usd, started_at, completed_at FROM pipeline_stages WHERE run_id = $1 ORDER BY id',
+        [runId]
+      );
+
+      // Emit stage transition events
+      for (const s of stages) {
+        const prevStatus = lastStageStatus[s.stage];
+        if (prevStatus !== s.status) {
+          res.write(`data: ${JSON.stringify({
+            type: 'stage',
+            stage: s.stage,
+            status: s.status,
+            durationMs: s.duration_ms,
+            costUsd: parseFloat(s.cost_usd) || 0
+          })}\n\n`);
+          lastStageStatus[s.stage] = s.status;
+        }
+
+        // Emit new output/error content
+        const currentOut = (s.output || '') + (s.error ? '\n[ERROR] ' + s.error : '');
+        if (currentOut && currentOut !== lastOutput[s.stage]) {
+          res.write(`data: ${JSON.stringify({
+            type: 'output',
+            stage: s.stage,
+            content: currentOut
+          })}\n\n`);
+          lastOutput[s.stage] = currentOut;
+        }
+      }
+
+      // Emit run status
+      res.write(`data: ${JSON.stringify({
+        type: 'status',
+        status: run.status,
+        currentStage: run.current_stage
+      })}\n\n`);
+
+      // Stop polling if run is terminal
+      if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        res.write(`data: ${JSON.stringify({ type: 'done', status: run.status })}\n\n`);
+        res.end();
+        return;
+      }
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+    }
+
+    if (!closed) setTimeout(poll, 2000);
+  }
+
+  poll();
+});
+
+// --- GET /api/pipeline/stats — Aggregate pipeline stats ---
+
+router.get('/stats', async (req, res) => {
+  try {
+    // Success rate (last 7 days)
+    const { rows: rateRows } = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+        COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+        COUNT(*) FILTER (WHERE status IN ('completed', 'failed')) AS total
+      FROM pipeline_runs
+      WHERE created_at > NOW() - INTERVAL '7 days'
+    `);
+    const rate = rateRows[0];
+    const successRate = rate.total > 0
+      ? Math.round((parseInt(rate.completed) / parseInt(rate.total)) * 100)
+      : 0;
+
+    // Last 5 runs
+    const { rows: recentRows } = await pool.query(`
+      SELECT id, task_id, repo, status, current_stage, cost_usd,
+        EXTRACT(EPOCH FROM (COALESCE(completed_at, NOW()) - started_at)) AS duration_secs,
+        created_at
+      FROM pipeline_runs
+      ORDER BY created_at DESC
+      LIMIT 5
+    `);
+    const recentRuns = recentRows.map(r => ({
+      id: r.id,
+      taskId: r.task_id,
+      repo: r.repo,
+      status: r.status,
+      currentStage: r.current_stage,
+      costUsd: parseFloat(r.cost_usd) || 0,
+      durationSecs: r.duration_secs ? Math.round(parseFloat(r.duration_secs)) : null,
+      createdAt: r.created_at.toISOString()
+    }));
+
+    // Total cost this week
+    const { rows: costRows } = await pool.query(`
+      SELECT COALESCE(SUM(cost_usd), 0) AS total_cost
+      FROM pipeline_runs
+      WHERE created_at > NOW() - INTERVAL '7 days'
+    `);
+    const totalCostWeek = parseFloat(costRows[0].total_cost) || 0;
+
+    // Average duration (completed runs, last 7 days)
+    const { rows: durRows } = await pool.query(`
+      SELECT AVG(EXTRACT(EPOCH FROM (completed_at - started_at))) AS avg_dur
+      FROM pipeline_runs
+      WHERE status = 'completed' AND completed_at IS NOT NULL
+        AND created_at > NOW() - INTERVAL '7 days'
+    `);
+    const avgDurationSecs = durRows[0].avg_dur ? Math.round(parseFloat(durRows[0].avg_dur)) : null;
+
+    res.json({
+      successRate,
+      completed: parseInt(rate.completed),
+      failed: parseInt(rate.failed),
+      total: parseInt(rate.total),
+      recentRuns,
+      totalCostWeek,
+      avgDurationSecs
+    });
+  } catch (err) {
+    console.error('[pipeline-routes] Stats error:', err.message);
+    res.status(500).json({ error: 'Failed to get pipeline stats', details: err.message });
+  }
+});
+
+// --- GET /api/pipeline/repos — Known repos for dropdown ---
+
+router.get('/repos', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT DISTINCT repo FROM pipeline_runs ORDER BY repo'
+    );
+    const repos = rows.map(r => r.repo);
+    // Add default repos if none found
+    if (repos.length === 0) {
+      repos.push('torcmo/marketing-command-center', 'torcmo/dashboard');
+    }
+    res.json(repos);
+  } catch (err) {
+    res.json(['torcmo/marketing-command-center', 'torcmo/dashboard']);
+  }
+});
+
 module.exports = router;

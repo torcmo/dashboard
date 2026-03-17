@@ -772,6 +772,8 @@ a{color:var(--accent);text-decoration:none}
   .pl-stepper-step{padding:6px 10px;min-width:50px}
   .pl-stepper-line{width:16px}
   .pl-header-actions{flex-wrap:wrap}
+  .pl-modal{width:95vw}
+  .pl-stats-widget{flex-direction:column;align-items:center}
 }
 
 /* === Claude Code Terminal === */
@@ -795,4 +797,76 @@ a{color:var(--accent);text-decoration:none}
 .terminal-output .stderr{color:#f87171}
 .terminal-output .tool-use{color:var(--accent)}
 .terminal-output .success{color:#34d399}
+/* === Pipeline Live Log Panel === */
+.pl-log-card{margin-top:16px;border:1px solid #3a2010}
+.pl-log-card .card-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #3a2010;padding:10px 16px;background:#1a1210}
+.pl-log-card .card-header h2{margin:0;font-size:14px;color:var(--accent);display:flex;align-items:center}
+.pl-log-controls{display:flex;align-items:center;gap:8px}
+.pl-log-status{font-size:12px;font-weight:600;color:#6b7280;letter-spacing:.5px}
+.pl-log-status.connected{color:#34d399}
+.pl-log-status.done{color:var(--text-dim)}
+.pl-log-body{background:#0d0d0d;max-height:400px;overflow:hidden}
+.pl-log-output{margin:0;padding:12px 16px;font-family:'SF Mono','Fira Code','Cascadia Code',Menlo,Consolas,monospace;
+  font-size:12px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;
+  overflow-y:auto;max-height:380px;scrollbar-width:thin;scrollbar-color:#3a2010 transparent}
+.pl-log-output::-webkit-scrollbar{width:6px}
+.pl-log-output::-webkit-scrollbar-track{background:transparent}
+.pl-log-output::-webkit-scrollbar-thumb{background:#3a2010;border-radius:3px}
+.pl-log-stage-header{display:block;color:var(--accent);font-weight:700;margin:8px 0 4px;padding:4px 8px;
+  background:rgba(246,73,13,.1);border-radius:4px;border-left:3px solid var(--accent)}
+.pl-log-stage-header.passed{color:var(--green);background:rgba(63,185,80,.08);border-color:var(--green)}
+.pl-log-stage-header.failed{color:var(--red);background:rgba(248,81,73,.08);border-color:var(--red)}
+.pl-log-error{color:var(--red)}
+
+/* === New Run Modal === */
+.pl-modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);display:flex;
+  align-items:center;justify-content:center;animation:fadeIn .2s ease}
+.pl-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:560px;
+  max-width:90vw;max-height:90vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+.pl-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
+  border-bottom:1px solid var(--border)}
+.pl-modal-header h2{font-size:1rem;font-weight:700}
+.pl-modal-close{background:none;border:none;color:var(--text-dim);font-size:1.4rem;cursor:pointer;padding:0 4px;transition:color .15s}
+.pl-modal-close:hover{color:var(--red)}
+.pl-modal-body{padding:20px;display:flex;flex-direction:column;gap:14px}
+.pl-modal-label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--text-dim)}
+.pl-modal-label input,.pl-modal-label textarea,.pl-modal-label select{
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;
+  color:var(--text);font-size:.82rem;outline:none;font-family:inherit}
+.pl-modal-label input:focus,.pl-modal-label textarea:focus,.pl-modal-label select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(246,73,13,.15)}
+.pl-modal-wide{grid-column:1/-1}
+.pl-optional{font-size:.7rem;color:var(--text-dim);opacity:.6}
+.pl-modal-toggles{display:flex;gap:16px;flex-wrap:wrap}
+.pl-toggle-label{font-size:.82rem;color:var(--text);display:flex;align-items:center;gap:6px;cursor:pointer}
+.pl-toggle-label input{accent-color:var(--accent)}
+.pl-slider{width:100%;accent-color:var(--accent);margin-top:4px}
+.pl-modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border)}
+.pl-modal-cancel-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:8px 18px;
+  color:var(--text-dim);cursor:pointer;font-size:.82rem;transition:all .15s}
+.pl-modal-cancel-btn:hover{border-color:var(--accent);color:var(--text)}
+.pl-modal-submit-btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 22px;
+  cursor:pointer;font-size:.82rem;font-weight:600;transition:opacity .15s}
+.pl-modal-submit-btn:hover{opacity:.85}
+.pl-modal-submit-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* === Pipeline Stats Widget (Overview) === */
+.pl-stats-widget{display:flex;gap:16px;align-items:flex-start}
+.pl-stats-donut-wrap{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.pl-stats-donut{position:relative;width:100px;height:100px}
+.pl-stats-donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+.pl-stats-donut-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;font-weight:900;color:var(--text)}
+.pl-stats-donut-sub{font-size:.7rem;color:var(--text-dim);text-align:center}
+.pl-stats-right{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
+.pl-stats-metrics{display:flex;gap:12px;flex-wrap:wrap}
+.pl-stats-metric{padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid var(--border);flex:1;min-width:90px}
+.pl-stats-metric .label{font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.pl-stats-metric .value{font-size:1rem;font-weight:700;margin-top:2px}
+.pl-stats-recent{font-size:.78rem}
+.pl-stats-recent-title{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.pl-stats-run-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(42,42,42,.5)}
+.pl-stats-run-row:last-child{border-bottom:none}
+.pl-stats-run-task{font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:.75rem;color:var(--accent);min-width:50px}
+.pl-stats-run-repo{font-size:.72rem;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 .hidden{display:none!important}
