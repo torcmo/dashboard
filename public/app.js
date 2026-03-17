@@ -89,7 +89,7 @@ function syncPanels(route) {
   if (route === 'overview') return;
   if (route === 'campaigns') { loadCampaigns(); return; }
   if (route === 'marketing') { loadMarketing(); return; }
-  if (route === 'pipeline') { loadPipeline(); loadKnownRepos(); return; }
+  if (route === 'pipeline') { loadPipeline(); loadKnownRepos(); loadRepoConfigs(); setupRepoConfigBindings(); return; }
   // Stop pipeline auto-refresh when navigating away
   stopPlAutoRefresh();
   disconnectPipelineLogs();
@@ -1066,13 +1066,21 @@ function renderPipelineRunList(runs) {
   wrap.className = 'pl-table-wrap';
   const table = document.createElement('table');
   table.className = 'pl-table';
-  table.innerHTML = '<thead><tr><th>Task</th><th>Repo</th><th>Status</th><th>Stage</th><th>Duration</th><th>Cost</th><th>Triggered By</th><th>Created</th></tr></thead>';
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['Task', 'Repo', 'Provider', 'Status', 'Stage', 'Duration', 'Cost', 'Triggered By', 'Created'].forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
   const tbody = document.createElement('tbody');
 
   if (runs.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 8;
+    td.colSpan = 9;
     td.className = 'pl-empty';
     td.textContent = 'No pipeline runs found.';
     tr.appendChild(td);
@@ -1090,6 +1098,12 @@ function renderPipelineRunList(runs) {
       const tdRepo = document.createElement('td');
       tdRepo.className = 'pl-cell-repo';
       tdRepo.textContent = r.repo;
+
+      const tdProvider = document.createElement('td');
+      const provBadge = document.createElement('span');
+      provBadge.className = 'pl-provider-badge pl-provider-' + (r.provider || 'github');
+      provBadge.textContent = r.provider === 'azure_devops' ? 'Azure DevOps' : 'GitHub';
+      tdProvider.appendChild(provBadge);
 
       const tdStatus = document.createElement('td');
       const badge = document.createElement('span');
@@ -1113,7 +1127,7 @@ function renderPipelineRunList(runs) {
       tdDate.className = 'pl-cell-date';
       tdDate.textContent = new Date(r.createdAt).toLocaleString();
 
-      tr.append(tdTask, tdRepo, tdStatus, tdStage, tdDur, tdCost, tdBy, tdDate);
+      tr.append(tdTask, tdRepo, tdProvider, tdStatus, tdStage, tdDur, tdCost, tdBy, tdDate);
       tr.addEventListener('click', () => showPipelineDetail(r.id));
       tbody.appendChild(tr);
     });
@@ -1291,6 +1305,11 @@ function renderPipelineDetail(run) {
     icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>';
     titleEl.appendChild(icon);
     titleEl.appendChild(document.createTextNode(' ' + (run.taskId || run.id.slice(0, 8)) + ' \u2014 ' + run.repo + ' '));
+    const providerBadge = document.createElement('span');
+    providerBadge.className = 'pl-provider-badge pl-provider-' + (run.provider || 'github');
+    providerBadge.textContent = run.provider === 'azure_devops' ? 'Azure DevOps' : 'GitHub';
+    titleEl.appendChild(providerBadge);
+    titleEl.appendChild(document.createTextNode(' '));
     const badge = document.createElement('span');
     badge.className = 'pl-status-badge ' + (PL_STATUS_CLASS[run.status] || '');
     badge.textContent = run.status;
@@ -1448,7 +1467,7 @@ function renderPipelineDetail(run) {
       ['Task', run.taskId || '--'],
       ['Repo', run.repo],
       ['Branch', run.branch || '--'],
-      ['Provider', run.provider || '--'],
+      ['Provider', run.provider === 'azure_devops' ? 'Azure DevOps' : 'GitHub'],
       ['Triggered By', run.triggeredBy || '--'],
       ['Created', new Date(run.createdAt).toLocaleString()],
       run.startedAt ? ['Started', new Date(run.startedAt).toLocaleString()] : null,
@@ -1617,6 +1636,20 @@ function openNewRunModal() {
   const slider = $('#pl-modal-timeout'); if (slider) slider.value = '600';
   const sliderVal = $('#pl-modal-timeout-val'); if (sliderVal) sliderVal.textContent = '600';
 
+  // Reset provider to GitHub and hide Azure fields
+  const providerSel = $('#pl-modal-provider');
+  const azureFields = $('#pl-modal-azure-fields');
+  if (providerSel) providerSel.value = 'github';
+  if (azureFields) azureFields.classList.add('hidden');
+  const azOrg = $('#pl-modal-azure-org'); if (azOrg) azOrg.value = '';
+  const azProj = $('#pl-modal-azure-project'); if (azProj) azProj.value = '';
+  const azWi = $('#pl-modal-azure-workitem'); if (azWi) azWi.value = '';
+
+  // Provider toggle — show/hide Azure DevOps fields
+  if (providerSel) providerSel.onchange = () => {
+    if (azureFields) azureFields.classList.toggle('hidden', providerSel.value !== 'azure_devops');
+  };
+
   // Timeout slider live update
   if (slider) slider.oninput = () => {
     if (sliderVal) sliderVal.textContent = slider.value;
@@ -1642,16 +1675,27 @@ function openNewRunModal() {
       submitBtn.textContent = 'Creating...';
 
       try {
+        const selectedProvider = ($('#pl-modal-provider') || {}).value || 'github';
+        const config = {
+          autoMerge: $('#pl-modal-automerge')?.checked !== false,
+          skipReview: $('#pl-modal-skipreview')?.checked || false,
+          skipQA: $('#pl-modal-skipqa')?.checked || false,
+          timeoutSeconds: parseInt($('#pl-modal-timeout')?.value || '600', 10)
+        };
+        if (selectedProvider === 'azure_devops') {
+          const azOrgVal = ($('#pl-modal-azure-org') || {}).value?.trim();
+          const azProjVal = ($('#pl-modal-azure-project') || {}).value?.trim();
+          const azWiVal = ($('#pl-modal-azure-workitem') || {}).value?.trim();
+          if (azOrgVal) config.organization = azOrgVal;
+          if (azProjVal) config.project = azProjVal;
+          if (azWiVal) config.workItemId = azWiVal;
+        }
         const body = {
           repo,
           prompt: promptVal,
+          provider: selectedProvider,
           taskId: ($('#pl-modal-taskid') || {}).value?.trim() || undefined,
-          config: {
-            autoMerge: $('#pl-modal-automerge')?.checked !== false,
-            skipReview: $('#pl-modal-skipreview')?.checked || false,
-            skipQA: $('#pl-modal-skipqa')?.checked || false,
-            timeoutSeconds: parseInt($('#pl-modal-timeout')?.value || '600', 10)
-          }
+          config
         };
 
         const resp = await fetch('/api/pipeline/runs', {
@@ -1677,6 +1721,219 @@ function openNewRunModal() {
       }
     };
   }
+}
+
+// --- Repo Config CRUD ---
+
+let plRepoConfigs = [];
+let plRepoEditKey = null;
+
+async function loadRepoConfigs() {
+  try {
+    plRepoConfigs = await fetch('/api/pipeline/repo-configs').then(r => r.json());
+  } catch {
+    plRepoConfigs = [];
+  }
+  renderRepoConfigs();
+}
+
+function renderRepoConfigs() {
+  const panel = $('#pipeline-repo-config-panel');
+  if (!panel) return;
+  panel.textContent = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'pl-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'pl-table';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['Repo', 'Provider', 'Org / Project', 'Default Branch', 'Merge Strategy', ''].forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  if (plRepoConfigs.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.className = 'pl-empty';
+    td.textContent = 'No repos configured. Click "+ Add Repo" to get started.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  } else {
+    plRepoConfigs.forEach(rc => {
+      const tr = document.createElement('tr');
+      tr.className = 'pl-run-row';
+
+      const tdName = document.createElement('td');
+      tdName.className = 'pl-cell-repo';
+      tdName.textContent = rc.repoName || rc.repoId;
+
+      const tdProv = document.createElement('td');
+      const provBadge = document.createElement('span');
+      provBadge.className = 'pl-provider-badge pl-provider-' + (rc.provider || 'github');
+      provBadge.textContent = rc.provider === 'azure_devops' ? 'Azure DevOps' : 'GitHub';
+      tdProv.appendChild(provBadge);
+
+      const tdOrg = document.createElement('td');
+      tdOrg.className = 'pl-cell-repo';
+      if (rc.provider === 'azure_devops') {
+        tdOrg.textContent = (rc.organization || '') + ' / ' + (rc.project || '');
+      } else {
+        tdOrg.textContent = rc.org || '';
+      }
+
+      const tdBranch = document.createElement('td');
+      tdBranch.textContent = rc.defaultBranch || 'master';
+
+      const tdMerge = document.createElement('td');
+      tdMerge.textContent = rc.mergeStrategy || 'squash';
+
+      const tdActions = document.createElement('td');
+      tdActions.className = 'pl-repo-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'pl-action-btn pl-action-approve';
+      editBtn.textContent = 'Edit';
+      editBtn.style.cssText = 'font-size:.7rem;padding:3px 10px';
+      editBtn.onclick = (e) => { e.stopPropagation(); openRepoModal(rc); };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'pl-action-btn pl-action-cancel';
+      delBtn.textContent = 'Delete';
+      delBtn.style.cssText = 'font-size:.7rem;padding:3px 10px';
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        await fetch('/api/pipeline/repo-configs/' + encodeURIComponent(rc.repoId), { method: 'DELETE' });
+        showToast('Repo config deleted');
+        await loadRepoConfigs();
+      };
+
+      tdActions.append(editBtn, delBtn);
+      tr.append(tdName, tdProv, tdOrg, tdBranch, tdMerge, tdActions);
+      tbody.appendChild(tr);
+    });
+  }
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  panel.appendChild(wrap);
+}
+
+function openRepoModal(config) {
+  const overlay = $('#pl-repo-modal-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+
+  const titleEl = $('#pl-repo-modal-title');
+  const provSel = $('#pl-repo-provider');
+  const ghFields = $('#pl-repo-github-fields');
+  const azFields = $('#pl-repo-azure-fields');
+  const orgInput = $('#pl-repo-org');
+  const azOrgInput = $('#pl-repo-azure-org');
+  const azProjInput = $('#pl-repo-azure-project');
+  const nameInput = $('#pl-repo-name');
+  const branchInput = $('#pl-repo-branch');
+  const mergeSel = $('#pl-repo-merge-strategy');
+
+  if (config) {
+    plRepoEditKey = config.repoId;
+    if (titleEl) titleEl.textContent = 'Edit Repo Config';
+    if (provSel) provSel.value = config.provider || 'github';
+    if (nameInput) nameInput.value = config.repoName || '';
+    if (branchInput) branchInput.value = config.defaultBranch || 'master';
+    if (mergeSel) mergeSel.value = config.mergeStrategy || 'squash';
+    if (config.provider === 'azure_devops') {
+      if (ghFields) ghFields.classList.add('hidden');
+      if (azFields) azFields.classList.remove('hidden');
+      if (azOrgInput) azOrgInput.value = config.organization || '';
+      if (azProjInput) azProjInput.value = config.project || '';
+    } else {
+      if (ghFields) ghFields.classList.remove('hidden');
+      if (azFields) azFields.classList.add('hidden');
+      if (orgInput) orgInput.value = config.org || '';
+    }
+  } else {
+    plRepoEditKey = null;
+    if (titleEl) titleEl.textContent = 'Add Repo Config';
+    if (provSel) provSel.value = 'github';
+    if (ghFields) ghFields.classList.remove('hidden');
+    if (azFields) azFields.classList.add('hidden');
+    if (orgInput) orgInput.value = '';
+    if (azOrgInput) azOrgInput.value = '';
+    if (azProjInput) azProjInput.value = '';
+    if (nameInput) nameInput.value = '';
+    if (branchInput) branchInput.value = 'master';
+    if (mergeSel) mergeSel.value = 'squash';
+  }
+
+  // Provider toggle
+  if (provSel) provSel.onchange = () => {
+    const isAzure = provSel.value === 'azure_devops';
+    if (ghFields) ghFields.classList.toggle('hidden', isAzure);
+    if (azFields) azFields.classList.toggle('hidden', !isAzure);
+  };
+
+  const closeModal = () => overlay.classList.add('hidden');
+  const closeBtn = $('#pl-repo-modal-close');
+  const cancelBtn = $('#pl-repo-modal-cancel');
+  if (closeBtn) closeBtn.onclick = closeModal;
+  if (cancelBtn) cancelBtn.onclick = closeModal;
+  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+  const submitBtn = $('#pl-repo-modal-submit');
+  if (submitBtn) {
+    submitBtn.onclick = async () => {
+      const repoName = (nameInput || {}).value?.trim();
+      if (!repoName) { showToast('Repository name is required'); return; }
+
+      const provider = (provSel || {}).value || 'github';
+      const repoId = plRepoEditKey || repoName;
+      const body = {
+        provider,
+        repoName,
+        defaultBranch: (branchInput || {}).value?.trim() || 'master',
+        mergeStrategy: (mergeSel || {}).value || 'squash'
+      };
+      if (provider === 'github') {
+        body.organization = (orgInput || {}).value?.trim() || '';
+      } else {
+        body.organization = (azOrgInput || {}).value?.trim() || '';
+        body.project = (azProjInput || {}).value?.trim() || '';
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+      try {
+        const resp = await fetch('/api/pipeline/repo-configs/' + encodeURIComponent(repoId), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!resp.ok) { const err = await resp.json(); showToast('Error: ' + (err.error || 'Failed')); return; }
+        showToast('Repo config saved');
+        closeModal();
+        await loadRepoConfigs();
+      } catch {
+        showToast('Error saving repo config');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save';
+      }
+    };
+  }
+}
+
+function setupRepoConfigBindings() {
+  const addBtn = $('#pl-repo-add-btn');
+  if (addBtn) addBtn.onclick = () => openRepoModal(null);
 }
 
 // --- Pipeline Stats Widget (Overview) ---

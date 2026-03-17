@@ -100,7 +100,10 @@ const CreatePipelineRunBody = Type.Object({
     reviewTimeout: Type.Optional(Type.Number()),
     mergeStrategy: Type.Optional(Type.Union([Type.Literal('squash'), Type.Literal('merge'), Type.Literal('rebase')])),
     defaultBranch: Type.Optional(Type.String()),
-    port: Type.Optional(Type.Number())
+    port: Type.Optional(Type.Number()),
+    workItemId: Type.Optional(Type.String()),
+    organization: Type.Optional(Type.String()),
+    project: Type.Optional(Type.String())
   }))
 });
 
@@ -678,6 +681,74 @@ router.get('/cleanup', async (req, res) => {
   } catch (err) {
     console.error('[pipeline-routes] Cleanup error:', err.message);
     res.status(500).json({ error: 'Failed to run cleanup', details: err.message });
+  }
+});
+
+// --- GET /api/pipeline/repo-configs — List all repo configurations ---
+
+router.get('/repo-configs', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT key, value, updated_by, updated_at FROM pipeline_config WHERE key LIKE 'repo:%' ORDER BY key"
+    );
+    const configs = rows.map(r => ({
+      key: r.key,
+      repoId: r.key.replace('repo:', ''),
+      ...r.value,
+      updatedBy: r.updated_by,
+      updatedAt: r.updated_at ? r.updated_at.toISOString() : null
+    }));
+    res.json(configs);
+  } catch (err) {
+    console.error('[pipeline-routes] List repo configs error:', err.message);
+    res.json([]);
+  }
+});
+
+// --- PUT /api/pipeline/repo-configs/:repoId — Create or update a repo config ---
+
+router.put('/repo-configs/:repoId', async (req, res) => {
+  const repoId = req.params.repoId;
+  const key = `repo:${repoId}`;
+  const { provider, organization, project, repoName, defaultBranch, mergeStrategy } = req.body;
+
+  if (!provider || !repoName) {
+    return res.status(400).json({ error: 'provider and repoName are required' });
+  }
+
+  const value = { provider, repoName, defaultBranch: defaultBranch || 'master', mergeStrategy: mergeStrategy || 'squash' };
+  if (provider === 'github') {
+    value.org = organization || '';
+  } else if (provider === 'azure_devops') {
+    value.organization = organization || '';
+    value.project = project || '';
+  }
+
+  const userId = getUserId(req);
+
+  try {
+    await pool.query(
+      `INSERT INTO pipeline_config (key, value, updated_by) VALUES ($1, $2, $3)
+       ON CONFLICT (key) DO UPDATE SET value = $2, updated_by = $3, updated_at = NOW()`,
+      [key, JSON.stringify(value), userId || 'system']
+    );
+    res.json({ key, repoId, ...value });
+  } catch (err) {
+    console.error('[pipeline-routes] Save repo config error:', err.message);
+    res.status(500).json({ error: 'Failed to save repo config', details: err.message });
+  }
+});
+
+// --- DELETE /api/pipeline/repo-configs/:repoId — Delete a repo config ---
+
+router.delete('/repo-configs/:repoId', async (req, res) => {
+  const key = `repo:${req.params.repoId}`;
+  try {
+    await pool.query('DELETE FROM pipeline_config WHERE key = $1', [key]);
+    res.json({ message: 'Repo config deleted', key });
+  } catch (err) {
+    console.error('[pipeline-routes] Delete repo config error:', err.message);
+    res.status(500).json({ error: 'Failed to delete repo config', details: err.message });
   }
 });
 
