@@ -72,9 +72,22 @@ async function executePipeline(run) {
   let currentRun = { ...run };
 
   try {
+    // When retrying from a specific stage, skip earlier stages that already passed
+    const fromStage = run.config?.fromStage || null;
+    let reachedFromStage = !fromStage;
+
     for (const stageName of STAGES) {
       const stageRow = stageMap[stageName];
       if (!stageRow) continue;
+
+      // Skip already-passed/skipped stages when retrying from a later stage
+      if (!reachedFromStage) {
+        if (stageName === fromStage) {
+          reachedFromStage = true;
+        } else {
+          continue;
+        }
+      }
 
       // Skip stages if configured
       if (stageName === 'review' && skipReview) {
