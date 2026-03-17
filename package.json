@@ -1,0 +1,13 @@
+{
+  "name": "openclaw-dashboard",
+  "version": "1.0.0",
+  "description": "Local dashboard with system health, API usage, cron jobs, and kanban board",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
+    "express": "^4.21.0"
+  }
+}

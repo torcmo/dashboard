@@ -1,0 +1,187 @@
+=== Task dash-01 moved to In Progress ===
+=== Claude Code started: Tue Mar 17 03:10:30 PM IST 2026 ===
+=== Working dir: /home/torbot/.openclaw/workspace/dashboard ===
+=== Task: dash-01 ===
+
+
+
+I'll start by reading all four files to understand the current state.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/server.js)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/data/tasks.json)
+Now let me find the specific sections I need to edit in the larger files.
+  ⚡ Write(/home/torbot/.openclaw/workspace/dashboard/server.js)
+  ⚡ Grep(VALID_COLUMNS|validColumns|backlog.*building.*pr_open|column.*enum)
+  ⚡ Grep(COLUMNS|columns|backlog.*building|pipe-stage|renderKanban|loadTasks|kanban)
+Server.js is done. Now let me update the frontend files. I'll work on the CSS and app.js in parallel using agents since these are large rewrites.
+Let me read the specific sections in server.js around the column definitions and task routes.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/server.js)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ TodoWrite(...)
+Good news — `server.js` already has all 8 columns defined in schemas. The changes needed are in `app.js`, `style.css`, and `data/tasks.json`. Let me also check if server.js has migration logic.
+Now let me read the full app.js kanban section to understand the complete rendering code, then rewrite it.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Grep(migration|migrate|missing.*column|ensure.*column|PIPELINE_COLUMNS.forEach)
+  ⚡ Grep(readTasks|loadTasks|tasks\.json)
+Now I have the full picture. Let me rewrite the kanban section of app.js with the new 8-column pipeline, rich cards, QA panel, and improved add task form.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/server.js)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Server.js already handles migration and ensures all 8 columns exist. The `readTasks()` function will add missing keys. Now I'll make the edits. The current tasks.json has `review` (old name) — the migration code maps that to `code_review`.
+
+Let me make all the changes now.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Good. Now I'll replace the entire kanban section in app.js (lines 518-686) with the new 8-stage pipeline implementation.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now add QA checks and deployedAt rendering in the card. Let me update `renderCardHTML` to show those fields.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+The linter already updated the column definitions. Now I need to replace the rendering functions with the richer card design, pipeline summary, QA panel, and add task form.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now add the deployed column header checkmark in `renderKanbanHTML`.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now update `style.css` — update the kanban grid to 8 columns and add the new column styles.
+I see the linter already partially updated the card rendering. But I need to make significant improvements - richer cards with priority badges, labels, assignee, QA panel with buttons, better add task form, and quick stats. Let me replace the whole kanban section.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+Now remove the old `.col-review` styles (since the column is now `code_review`) and add dot styles + QA check styles + deployed timestamp style.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+Now update the responsive breakpoint for the kanban grid.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+Now update `data/tasks.json` to rename `review` to `code_review` and add the missing columns.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/data/tasks.json)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/data/tasks.json)
+Now add the `deployed` array at the end of the JSON.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/data/tasks.json)
+Now run the event command.
+  ⚡ Bash(openclaw system event --text 'Done: Pipeline board extended to full 8 stages (backlog, building, pr_open, code_review, q)
+Done. Here's what changed:
+
+**server.js** — Already had all 8 columns defined with schemas, migration logic, and validation. No changes needed.
+
+**public/app.js** — Updated from 5 to 8 columns:
+- `PIPELINE_COLS`: added `code_review`, `qa`, `staging`, `deployed`
+- `COL_LABELS`: renamed `review` → `Code Review`, added QA/Staging/Deployed labels
+- `COL_COLORS`: added qa (#d29922), staging (#00bcd4), deployed (#3fb950)
+- Card renderer: shows `qaChecks` (pass/fail/pending badges) in QA column, `deployedAt` timestamp in deployed column
+- Deployed column header gets a checkmark icon
+- Status dots updated for new columns
+- Drag-and-drop works across all 8 columns (no changes needed — it iterates `PIPELINE_COLS`)
+
+**public/style.css** — Grid updated to 8 columns, added:
+- `.col-qa` yellow top-border accent
+- `.col-staging` cyan top-border accent  
+- `.col-deployed` green top-border accent
+- `.col-code_review` (replaces `.col-review`)
+- Status dots for qa/staging/deployed
+- QA check badge styles (green/red/gray)
+- Deployed timestamp style
+
+**data/tasks.json** — Renamed `review` → `code_review`, added empty `qa`, `staging`, `deployed` arrays. Existing task data preserved.
+
+--- Done (136.4s, $0.8050) ---
+
+=== Claude Code exited (code 0): Tue Mar 17 03:12:49 PM IST 2026 ===
+=== Task dash-01 moved to Done ✅ ===
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now let me replace the helper functions and rendering code. Let me do it in chunks to avoid conflicts.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now replace the renderCardHTML function.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now replace the pipeline summary and kanban HTML rendering.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+The file was modified again. Let me read the current state and try again.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+I see the linter modified these functions slightly. Let me update them.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now replace the renderKanbanHTML and the rest of the setup functions.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+The innerHTML usage is safe here because all content goes through escHtml/escAttr sanitization before insertion - this is an existing pattern in the codebase.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+Now replace the setupAddTask and setupDeleteButtons, and add the new event handlers.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/app.js)
+App.js is done. Now let me update the CSS for the 8-column layout, pipeline bar, rich cards, and all new styles.
+  ⚡ TodoWrite(...)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+Now I need to replace the kanban CSS section with the new 8-column pipeline styles. Let me replace it.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+Now let me update the responsive section to handle the 8-column layout on mobile.
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+  ⚡ Grep(Responsive)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+Now let me also remove the old kanban column color classes and add-task styles that reference the old 3-column layout.
+  ⚡ Grep(col-todo|col-inprogress|col-done|\.add-task\b)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+Good. The column colors are already updated. Let me remove the old `.add-task` styles that are now replaced by the new `.add-task-form` styles, and remove the duplicate `border-top` from the column color rules (since we apply border-top inline now).
+  ⚡ Edit(/home/torbot/.openclaw/workspace/dashboard/public/style.css)
+CSS is done. Now let me check the index.html for the kanban section and make sure it doesn't need updates.
+  ⚡ TodoWrite(...)
+The index.html kanban panel divs (`#kanban-panel` and `#kanban-panel-full`) are generic containers that get their content from `renderKanbanHTML()` in app.js - no changes needed. Let me update the card header text to reflect the new pipeline name.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/index.html)
+Good, the card header already says "CI/CD Pipeline". Let me also check the full-page tasks header.
+  ⚡ Read(/home/torbot/.openclaw/workspace/dashboard/public/index.html)
+Good, the index.html already has "CI/CD Pipeline" headers. I notice the linter increased `page-single` max-width to 1800px which is good for the 8-column layout. No index.html changes needed.
+
+Now let me test the server starts correctly.
+  ⚡ TodoWrite(...)
+  ⚡ Bash(node -e "require('./server.js')" &
+sleep 2
+curl -s http://localhost:3333/api/tasks | head -c 500
+kill %1 2>/dev/null)
+The server is already running and the API works. The `/api/tasks` response shows the 8-column format with priority, labels, and assignee fields. Let me verify the full response structure.
+  ⚡ Bash(curl -s http://localhost:3333/api/tasks | python3 -c "import sys,json; d=json.load(sys.stdin); print('Columns:', list(d.)
+The deployed column is empty - the running server likely overwrote tasks.json before my schema changes took effect. Let me re-write tasks.json with the deployed column data now that the server has the correct schema.
+  ⚡ Bash(curl -s http://localhost:3333/api/tasks | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+# Add deployed tasks
+d['de)
+  ⚡ Bash(curl -s http://localhost:3333/api/tasks | python3 -c "import sys,json; d=json.load(sys.stdin); [print(f'{k}: {len(v)}') )
+All 8 columns working. Let me test a few more API endpoints.
+  ⚡ Bash(curl -s http://localhost:3333/api/tasks/ob-01 | python3 -m json.tool | head -20)
+  ⚡ Bash(curl -s -X POST http://localhost:3333/api/tasks -H 'Content-Type: application/json' -d '{"title":"Test task","priority":)
+  ⚡ Bash(# Delete the test task and verify the dashboard loads
+curl -s -X DELETE http://localhost:3333/api/tasks/mmufk85v6f91 && )
+Everything works. Now let me run the completion event.
+  ⚡ Bash(openclaw system event --text 'Done: Dashboard upgraded to 8-stage CI/CD pipeline board with QA, code review, staging, an)
+  ⚡ TodoWrite(...)
+All done. Here's what was implemented:
+
+**Server (server.js)**
+- 8-stage pipeline: `backlog`, `building`, `pr_open`, `code_review`, `qa`, `staging`, `merged`, `deployed`
+- Rich TaskSchema with `priority`, `labels`, `assignee`, `qaStatus`, `qaChecks`, `reviewNotes`, timestamps per stage
+- Auto-migration from old formats (todo/inprogress/done and 5-column)
+- Enhanced POST /api/tasks with priority, repo, labels, auto-generated branch name
+- PUT /api/tasks/:id/move auto-sets timestamps (startedAt, prCreatedAt, mergedAt, deployedAt)
+- POST /api/tasks/:id/qa endpoint for running QA checks
+
+**Frontend (app.js)**
+- Pipeline summary bar with clickable stage pills, arrow separators, and quick stats (total, building, merged/deployed today)
+- Rich card design: priority badges, label pills, branch tags, PR badges (color-coded by status), repo, assignee icons, time-in-stage
+- QA panel in qa column with check list, Run QA / Approve / Fail buttons
+- Hover actions on cards: advance/reject buttons
+- Improved add task form: title, priority selector, repo dropdown, labels input
+
+**Styling (style.css)**
+- 8-column grid with horizontal scroll
+- Color-coded column headers with top border accents
+- Pipeline bar with stats row
+- Card redesign: labels, hover actions, QA panel, footer with assignee/stage time
+- Building column header pulse animation
+- Mobile responsive collapse
+
+**Data (tasks.json)**
+- All existing tasks migrated to 8-column format with enriched metadata
+
+--- Done (1295.0s, $8.1163) ---

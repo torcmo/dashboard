@@ -1,0 +1,323 @@
+{
+  "backlog": [
+    {
+      "id": "ob-02",
+      "title": "Outbound: Accounts page — list, detail, contacts, enrichment",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-02-accounts-page",
+      "priority": "high",
+      "labels": [
+        "outbound",
+        "frontend"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-03",
+      "title": "Outbound: Signals page — feed, create, process, dismiss",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-03-signals-page",
+      "priority": "high",
+      "labels": [
+        "outbound",
+        "frontend"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-04",
+      "title": "Outbound: Sequences page — template library, editor, active instances",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-04-sequences-page",
+      "priority": "high",
+      "labels": [
+        "outbound",
+        "frontend"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-05",
+      "title": "Outbound: Outbox page — review queue, approve/edit/reject, sent history",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-05-outbox-page",
+      "priority": "medium",
+      "labels": [
+        "outbound",
+        "frontend"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-06",
+      "title": "Outbound: Attribution page — funnel, breakdowns, timeline",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-06-attribution-page",
+      "priority": "medium",
+      "labels": [
+        "outbound",
+        "frontend",
+        "analytics"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-07",
+      "title": "Outbound: Prospector agent — enrichment + signal scanning",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-07-prospector-agent",
+      "priority": "medium",
+      "labels": [
+        "outbound",
+        "backend",
+        "ai-agent"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-08",
+      "title": "Outbound: SDR agent — message composition + personalization",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-08-sdr-agent",
+      "priority": "medium",
+      "labels": [
+        "outbound",
+        "backend",
+        "ai-agent"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-09",
+      "title": "Outbound: Scoring engine + cross-page linking",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-09-scoring-engine",
+      "priority": "low",
+      "labels": [
+        "outbound",
+        "backend"
+      ],
+      "assignee": "claude-code"
+    },
+    {
+      "id": "ob-10",
+      "title": "Outbound: Nav update, polish, keyboard shortcuts",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-10-nav-polish",
+      "priority": "low",
+      "labels": [
+        "outbound",
+        "frontend",
+        "ux"
+      ],
+      "assignee": "claude-code"
+    }
+  ],
+  "building": [
+    {
+      "id": "ob-01",
+      "title": "Outbound: Data layer + seed (accounts, signals, sequences, outbox, attribution)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-01-data-layer",
+      "priority": "high",
+      "labels": [
+        "outbound",
+        "backend"
+      ],
+      "assignee": "claude-code",
+      "buildSessionId": "wild-ember",
+      "startedAt": "2026-03-17T10:00:00Z"
+    }
+  ],
+  "pr_open": [],
+  "code_review": [],
+  "qa": [],
+  "staging": [],
+  "merged": [
+    {
+      "id": "dash-01",
+      "title": "Dashboard: Upgrade to match MCC design quality",
+      "created": "2026-03-17",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/dash-01-design-upgrade",
+      "priority": "high",
+      "labels": [
+        "dashboard",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T14:00:00Z"
+    },
+    {
+      "id": "mcc-debug",
+      "title": "MCC: Bug fixes + full test pass (all 8 pages verified)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/mcc-debug-fixes",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "bugfix"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T12:00:00Z"
+    },
+    {
+      "id": "mcc-ux",
+      "title": "MCC: Award-winning UI redesign",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/mcc-ux-redesign",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "frontend",
+        "ux"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T11:00:00Z"
+    },
+    {
+      "id": "d-01",
+      "title": "Dashboard: Initial build (health, usage, cron, kanban, terminal)",
+      "created": "2026-03-16",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-01-initial-build",
+      "priority": "high",
+      "labels": [
+        "dashboard",
+        "backend",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-16T18:00:00Z"
+    },
+    {
+      "id": "d-02",
+      "title": "Dashboard: Wire API usage to real OpenClaw logs",
+      "created": "2026-03-16",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-02-api-usage",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "backend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-16T20:00:00Z"
+    },
+    {
+      "id": "d-03",
+      "title": "Dashboard: Cron job management controls",
+      "created": "2026-03-16",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-03-cron-management",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "backend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-16T22:00:00Z"
+    },
+    {
+      "id": "d-04",
+      "title": "Dashboard: Claude Code terminal with live SSE streaming",
+      "created": "2026-03-17",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-04-terminal-sse",
+      "priority": "high",
+      "labels": [
+        "dashboard",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T08:00:00Z"
+    },
+    {
+      "id": "d-05",
+      "title": "Dashboard: Tor.ai rebrand (colors, Lato font, logo)",
+      "created": "2026-03-17",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-05-rebrand",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "frontend",
+        "branding"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T09:00:00Z"
+    },
+    {
+      "id": "mcc-build",
+      "title": "MCC: Full app build (8 pages, Express backend, seed data)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/mcc-build",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "backend",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T10:00:00Z"
+    }
+  ],
+  "deployed": [
+    {
+      "id": "mcc-brand",
+      "title": "MCC: Tor.ai rebrand + UX polish",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/mcc-brand",
+      "priority": "medium",
+      "labels": [
+        "mcc",
+        "frontend",
+        "branding"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T10:30:00Z",
+      "deployedAt": "2026-03-17T10:45:00Z"
+    },
+    {
+      "id": "mcc-repo",
+      "title": "MCC: GitHub repo (torcmo/marketing-command-center)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "infra"
+      ],
+      "assignee": "human",
+      "mergedAt": "2026-03-17T08:00:00Z",
+      "deployedAt": "2026-03-17T08:15:00Z"
+    },
+    {
+      "id": "mcc-prd",
+      "title": "MCC: Outbound Engine PRD written (Phase 2)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "docs"
+      ],
+      "assignee": "human",
+      "deployedAt": "2026-03-17T09:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+[
+  {
+    "id": "icp-ciso",
+    "name": "Enterprise CISO",
+    "description": "Chief Information Security Officers at mid-to-large enterprises seeking advanced threat detection and compliance automation to protect critical assets and meet regulatory requirements.",
+    "industry": "Enterprise / Cross-Industry",
+    "painPoints": [
+      "Alert fatigue from too many false positives",
+      "Difficulty meeting evolving compliance mandates",
+      "Lack of unified visibility across hybrid environments",
+      "Shortage of skilled security analysts"
+    ],
+    "buyerRole": "CISO / VP of Security"
+  },
+  {
+    "id": "icp-it-director",
+    "name": "IT Director — Financial Services",
+    "description": "IT Directors at banks, insurance companies, and fintech firms responsible for securing sensitive financial data and ensuring SOX/PCI-DSS compliance.",
+    "industry": "Financial Services",
+    "painPoints": [
+      "Regulatory audit preparation is manual and slow",
+      "Real-time fraud detection gaps",
+      "Legacy system integration challenges",
+      "Third-party vendor risk management"
+    ],
+    "buyerRole": "IT Director / Head of IT Security"
+  },
+  {
+    "id": "icp-defense-pm",
+    "name": "Defense Contractor PM",
+    "description": "Program Managers at defense contractors managing classified and CUI environments who need CMMC/NIST 800-171 compliance and supply chain security.",
+    "industry": "Defense & Aerospace",
+    "painPoints": [
+      "CMMC certification complexity",
+      "Securing CUI across subcontractor networks",
+      "Incident response in air-gapped environments",
+      "Long procurement cycles for security tools"
+    ],
+    "buyerRole": "Program Manager / Security Director"
+  },
+  {
+    "id": "icp-crit-infra",
+    "name": "Critical Infrastructure Operator",
+    "description": "Security leads at utilities, energy, and transportation organizations protecting OT/ICS environments from nation-state and ransomware threats.",
+    "industry": "Energy / Utilities / Transportation",
+    "painPoints": [
+      "IT/OT convergence security gaps",
+      "Legacy SCADA systems with no patching path",
+      "Real-time threat detection for industrial protocols",
+      "TSA Security Directive compliance"
+    ],
+    "buyerRole": "OT Security Manager / Plant Security Lead"
+  },
+  {
+    "id": "icp-mssp",
+    "name": "MSSP / MDR Provider",
+    "description": "Managed Security Service Providers seeking scalable, multi-tenant detection and response platforms to serve their customer base efficiently.",
+    "industry": "Managed Security Services",
+    "painPoints": [
+      "Scaling SOC operations across hundreds of tenants",
+      "Reducing mean time to detect and respond",
+      "Differentiating from commodity MSSP offerings",
+      "Integrating disparate customer tool stacks"
+    ],
+    "buyerRole": "VP of Operations / SOC Director"
+  },
+  {
+    "id": "icp-healthcare-sec",
+    "name": "Healthcare Security Director",
+    "description": "Security directors at hospitals and health systems protecting PHI and medical devices while maintaining HIPAA compliance and operational uptime.",
+    "industry": "Healthcare",
+    "painPoints": [
+      "Ransomware targeting medical devices and EHR systems",
+      "HIPAA audit readiness and breach notification",
+      "IoMT device visibility and segmentation",
+      "Budget constraints vs expanding attack surface"
+    ],
+    "buyerRole": "CISO / Director of Information Security"
+  }
+]

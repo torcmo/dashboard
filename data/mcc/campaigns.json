@@ -1,0 +1,94 @@
+[
+  {
+    "id": "camp-cmmc-ready",
+    "name": "CMMC Ready Campaign",
+    "description": "Drive awareness and pipeline among defense contractors preparing for CMMC 2.0 certification with Tor Comply as the compliance automation solution.",
+    "status": "active",
+    "startDate": "2026-02-01",
+    "endDate": "2026-04-30",
+    "goals": [
+      "Generate 150 MQLs from defense sector",
+      "Publish 4 CMMC-focused content pieces",
+      "Host 2 webinars with 200+ attendees each",
+      "Achieve 3% conversion on gated whitepaper"
+    ],
+    "targetIcps": ["icp-defense-pm", "icp-ciso"],
+    "channels": ["linkedin", "email", "webinar", "whitepaper-gated"],
+    "contentItems": [
+      "CMMC 2.0 Readiness Guide (whitepaper)",
+      "5 Steps to CMMC Certification (blog)",
+      "Defense Supply Chain Security Webinar",
+      "LinkedIn awareness ad series"
+    ],
+    "metrics": { "reach": 45200, "engagement": 3850, "leads": 87 }
+  },
+  {
+    "id": "camp-healthcare-shield",
+    "name": "Healthcare Shield Launch",
+    "description": "Launch campaign for Tor Shield's healthcare-specific features targeting hospital systems and health networks concerned about ransomware and HIPAA compliance.",
+    "status": "draft",
+    "startDate": "2026-04-15",
+    "endDate": "2026-07-15",
+    "goals": [
+      "Generate 100 MQLs from healthcare sector",
+      "Secure 3 customer case study participants",
+      "Achieve 25% email open rate on nurture sequence",
+      "Drive 500 whitepaper downloads"
+    ],
+    "targetIcps": ["icp-healthcare-sec", "icp-ciso"],
+    "channels": ["email", "blog", "whitepaper-gated", "linkedin"],
+    "contentItems": [
+      "Ransomware in Healthcare: 2026 Threat Report (whitepaper)",
+      "Hospital CISO Interview Series (blog)",
+      "HIPAA Compliance Automation Demo Video",
+      "Email nurture sequence (6-touch)"
+    ],
+    "metrics": { "reach": 0, "engagement": 0, "leads": 0 }
+  },
+  {
+    "id": "camp-mssp-partner",
+    "name": "MSSP Partner Program",
+    "description": "Recruit and enable MSSP/MDR partners to resell Tor Detect and Tor Respond through a co-marketing program with joint content and leads.",
+    "status": "active",
+    "startDate": "2026-01-15",
+    "endDate": "2026-06-30",
+    "goals": [
+      "Onboard 10 new MSSP partners",
+      "Create partner enablement toolkit",
+      "Generate 50 partner-sourced leads per quarter",
+      "Launch co-branded webinar series"
+    ],
+    "targetIcps": ["icp-mssp"],
+    "channels": ["email", "linkedin", "webinar", "blog"],
+    "contentItems": [
+      "MSSP Partner Program Overview (one-pager)",
+      "Multi-Tenant SOC Scaling Guide (whitepaper)",
+      "Partner onboarding email sequence",
+      "Co-branded threat briefing webinar"
+    ],
+    "metrics": { "reach": 28400, "engagement": 2100, "leads": 42 }
+  },
+  {
+    "id": "camp-ot-security",
+    "name": "OT/ICS Security Awareness",
+    "description": "Educate critical infrastructure operators on converged IT/OT security threats and position Tor Shield + Tor Detect as the unified defense platform.",
+    "status": "paused",
+    "startDate": "2026-03-01",
+    "endDate": "2026-05-31",
+    "goals": [
+      "Reach 10,000 OT security professionals",
+      "Generate 75 MQLs from energy/utilities sector",
+      "Publish OT threat landscape report",
+      "Achieve 500 webinar registrations"
+    ],
+    "targetIcps": ["icp-crit-infra", "icp-ciso"],
+    "channels": ["linkedin", "blog", "webinar", "email", "youtube"],
+    "contentItems": [
+      "OT/ICS Threat Landscape 2026 (report)",
+      "IT/OT Convergence Best Practices (blog series)",
+      "Critical Infrastructure Defense Webinar",
+      "YouTube explainer: Securing SCADA Systems"
+    ],
+    "metrics": { "reach": 12800, "engagement": 980, "leads": 23 }
+  }
+]

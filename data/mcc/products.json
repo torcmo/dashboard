@@ -1,0 +1,7 @@
+[
+  { "id": "tor-shield", "name": "Tor Shield", "description": "AI-powered network defense platform providing real-time threat detection, automated blocking, and adaptive perimeter protection.", "category": "Network Security" },
+  { "id": "tor-detect", "name": "Tor Detect", "description": "Advanced threat detection and hunting engine using behavioral analytics and ML to identify sophisticated attacks across endpoints and cloud.", "category": "Threat Detection" },
+  { "id": "tor-comply", "name": "Tor Comply", "description": "Continuous compliance monitoring and automated audit evidence collection for CMMC, NIST, HIPAA, SOX, and PCI-DSS frameworks.", "category": "Compliance" },
+  { "id": "tor-respond", "name": "Tor Respond", "description": "Automated incident response orchestration with playbook-driven remediation, forensic timeline reconstruction, and stakeholder notification.", "category": "Incident Response" },
+  { "id": "tor-intel", "name": "Tor Intel", "description": "Threat intelligence aggregation and enrichment platform providing contextualized IOCs, threat actor profiles, and predictive risk scoring.", "category": "Threat Intelligence" }
+]

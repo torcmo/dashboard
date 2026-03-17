@@ -1,0 +1,10 @@
+[
+  { "id": "linkedin", "name": "LinkedIn", "type": "social", "icon": "linkedin" },
+  { "id": "twitter", "name": "Twitter/X", "type": "social", "icon": "twitter" },
+  { "id": "blog", "name": "Blog", "type": "owned", "icon": "edit" },
+  { "id": "email", "name": "Email", "type": "direct", "icon": "mail" },
+  { "id": "webinar", "name": "Webinar", "type": "event", "icon": "video" },
+  { "id": "whitepaper-gated", "name": "Whitepaper (Gated)", "type": "owned", "icon": "file-text" },
+  { "id": "youtube", "name": "YouTube", "type": "social", "icon": "play" },
+  { "id": "podcast", "name": "Podcast", "type": "owned", "icon": "mic" }
+]

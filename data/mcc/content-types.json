@@ -1,0 +1,10 @@
+[
+  { "id": "blog-post", "name": "Blog Post", "description": "Long-form thought leadership and product-focused articles for the Tor.ai blog" },
+  { "id": "social-post", "name": "Social Post", "description": "Short-form posts for LinkedIn, Twitter/X, and other social platforms" },
+  { "id": "email-campaign", "name": "Email Campaign", "description": "Targeted email sequences for nurture, product launch, and re-engagement" },
+  { "id": "case-study", "name": "Case Study", "description": "Customer success stories highlighting measurable security outcomes" },
+  { "id": "whitepaper", "name": "Whitepaper", "description": "In-depth technical or strategic papers, often gated for lead generation" },
+  { "id": "webinar", "name": "Webinar", "description": "Live or recorded presentations on security topics and product demos" },
+  { "id": "video", "name": "Video", "description": "Product demos, explainers, and customer testimonial videos" },
+  { "id": "infographic", "name": "Infographic", "description": "Visual summaries of threat data, product capabilities, or industry trends" }
+]
