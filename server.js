@@ -32,6 +32,11 @@ const MCC_ICPS_FILE = path.join(MCC_DIR, 'icps.json');
 const MCC_CHANNELS_FILE = path.join(MCC_DIR, 'channels.json');
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Webhooks must be mounted before global JSON parser so GitHub can verify raw body signature
+const webhooksRouter = require('./routes/webhooks');
+app.use('/api/webhooks', webhooksRouter);
+
 app.use(express.json());
 
 // --- CPU Delta Tracking ---
