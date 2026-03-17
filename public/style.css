@@ -882,4 +882,24 @@ a{color:var(--accent);text-decoration:none}
 .pl-stats-run-task{font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:.75rem;color:var(--accent);min-width:50px}
 .pl-stats-run-repo{font-size:.72rem;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* --- Webhook Config --- */
+.wh-status-badge{font-size:.7rem;padding:2px 8px;border-radius:4px;font-weight:600}
+.wh-status-active{background:rgba(46,204,113,.15);color:#2ecc71}
+.wh-status-disabled{background:rgba(149,165,166,.15);color:#95a5a6}
+.wh-url-cell{display:flex;align-items:center;gap:6px}
+.wh-url-code{font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:.7rem;color:var(--text-dim);
+  background:rgba(255,255,255,.04);padding:3px 8px;border-radius:4px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;max-width:220px;border:1px solid var(--border)}
+.wh-copy-btn{font-size:.65rem;padding:2px 8px;border:1px solid var(--border);border-radius:4px;
+  background:rgba(255,255,255,.05);color:var(--text-dim);cursor:pointer;white-space:nowrap}
+.wh-copy-btn:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.wh-secret-row{display:flex;gap:6px;align-items:center}
+.wh-secret-input{flex:1}
+.wh-reveal-btn,.wh-gen-btn{font-size:.7rem;padding:4px 10px;border:1px solid var(--border);border-radius:6px;
+  background:rgba(255,255,255,.05);color:var(--text-dim);cursor:pointer;white-space:nowrap}
+.wh-reveal-btn:hover,.wh-gen-btn:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.wh-toggle-row{display:flex;align-items:center;gap:8px}
+.wh-checkbox-group{display:flex;gap:16px;padding:4px 0}
+.wh-checkbox-group label{display:flex;align-items:center;gap:4px;font-size:.8rem;color:var(--text-dim);cursor:pointer}
+
 .hidden{display:none!important}

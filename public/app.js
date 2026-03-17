@@ -89,7 +89,7 @@ function syncPanels(route) {
   if (route === 'overview') return;
   if (route === 'campaigns') { loadCampaigns(); return; }
   if (route === 'marketing') { loadMarketing(); return; }
-  if (route === 'pipeline') { loadPipeline(); loadKnownRepos(); loadRepoConfigs(); setupRepoConfigBindings(); return; }
+  if (route === 'pipeline') { loadPipeline(); loadKnownRepos(); loadRepoConfigs(); loadWebhookConfigs(); setupRepoConfigBindings(); setupWebhookBindings(); return; }
   // Stop pipeline auto-refresh when navigating away
   stopPlAutoRefresh();
   disconnectPipelineLogs();
@@ -1934,6 +1934,265 @@ function openRepoModal(config) {
 function setupRepoConfigBindings() {
   const addBtn = $('#pl-repo-add-btn');
   if (addBtn) addBtn.onclick = () => openRepoModal(null);
+}
+
+// --- Webhook Config ---
+
+let whConfigs = [];
+let whEditRepoId = null;
+
+async function loadWebhookConfigs() {
+  try {
+    whConfigs = await fetch('/api/webhooks/configs').then(r => r.json());
+  } catch {
+    whConfigs = [];
+  }
+  renderWebhookConfigs();
+}
+
+function renderWebhookConfigs() {
+  const panel = $('#webhook-config-panel');
+  if (!panel) return;
+  panel.textContent = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'pl-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'pl-table';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['Repo', 'Status', 'Events', 'Branches', 'Webhook URL', ''].forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  if (whConfigs.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.className = 'pl-empty';
+    td.textContent = 'No webhooks configured. Click "+ Add Webhook" to get started.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  } else {
+    whConfigs.forEach(wh => {
+      const tr = document.createElement('tr');
+      tr.className = 'pl-run-row';
+
+      const tdRepo = document.createElement('td');
+      tdRepo.className = 'pl-cell-repo';
+      tdRepo.textContent = wh.repoId;
+
+      const tdStatus = document.createElement('td');
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'wh-status-badge ' + (wh.enabled ? 'wh-status-active' : 'wh-status-disabled');
+      statusBadge.textContent = wh.enabled ? 'Active' : 'Disabled';
+      tdStatus.appendChild(statusBadge);
+
+      const tdEvents = document.createElement('td');
+      tdEvents.textContent = (wh.events || []).join(', ');
+
+      const tdBranches = document.createElement('td');
+      tdBranches.textContent = (wh.branches || []).length ? wh.branches.join(', ') : 'all';
+
+      const tdUrl = document.createElement('td');
+      const repoConfig = plRepoConfigs.find(rc => rc.repoId === wh.repoId);
+      const isAzure = repoConfig && repoConfig.provider === 'azure_devops';
+      const webhookUrl = window.location.origin + '/api/webhooks/' + (isAzure ? 'azure-devops' : 'github');
+      const urlWrap = document.createElement('div');
+      urlWrap.className = 'wh-url-cell';
+      const urlCode = document.createElement('code');
+      urlCode.className = 'wh-url-code';
+      urlCode.textContent = webhookUrl;
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'wh-copy-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(webhookUrl);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+      };
+      urlWrap.append(urlCode, copyBtn);
+      tdUrl.appendChild(urlWrap);
+
+      const tdActions = document.createElement('td');
+      tdActions.className = 'pl-repo-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'pl-action-btn pl-action-approve';
+      editBtn.textContent = 'Edit';
+      editBtn.style.cssText = 'font-size:.7rem;padding:3px 10px';
+      editBtn.onclick = (e) => { e.stopPropagation(); openWebhookModal(wh); };
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'pl-action-btn ' + (wh.enabled ? 'pl-action-cancel' : 'pl-action-approve');
+      toggleBtn.textContent = wh.enabled ? 'Disable' : 'Enable';
+      toggleBtn.style.cssText = 'font-size:.7rem;padding:3px 10px';
+      toggleBtn.onclick = async (e) => {
+        e.stopPropagation();
+        await fetch('/api/webhooks/configs/' + encodeURIComponent(wh.repoId), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...wh, enabled: !wh.enabled })
+        });
+        showToast(wh.enabled ? 'Webhook disabled' : 'Webhook enabled');
+        await loadWebhookConfigs();
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'pl-action-btn pl-action-cancel';
+      delBtn.textContent = 'Delete';
+      delBtn.style.cssText = 'font-size:.7rem;padding:3px 10px';
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        await fetch('/api/webhooks/configs/' + encodeURIComponent(wh.repoId), { method: 'DELETE' });
+        showToast('Webhook config deleted');
+        await loadWebhookConfigs();
+      };
+
+      tdActions.append(editBtn, toggleBtn, delBtn);
+      tr.append(tdRepo, tdStatus, tdEvents, tdBranches, tdUrl, tdActions);
+      tbody.appendChild(tr);
+    });
+  }
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  panel.appendChild(wrap);
+}
+
+function openWebhookModal(config) {
+  const overlay = $('#wh-modal-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+
+  const titleEl = $('#wh-modal-title');
+  const repoSel = $('#wh-modal-repo');
+  const enabledCb = $('#wh-modal-enabled');
+  const secretInput = $('#wh-modal-secret');
+  const revealBtn = $('#wh-modal-reveal');
+  const genBtn = $('#wh-modal-gen');
+  const evtPush = $('#wh-evt-push');
+  const evtPr = $('#wh-evt-pr');
+  const branchesInput = $('#wh-modal-branches');
+
+  // Populate repo dropdown from known repo configs using safe DOM methods
+  if (repoSel) {
+    while (repoSel.firstChild) repoSel.removeChild(repoSel.firstChild);
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = 'Select a repo...';
+    repoSel.appendChild(defaultOpt);
+    plRepoConfigs.forEach(rc => {
+      const opt = document.createElement('option');
+      opt.value = rc.repoId;
+      opt.textContent = rc.repoName || rc.repoId;
+      repoSel.appendChild(opt);
+    });
+  }
+
+  if (config) {
+    whEditRepoId = config.repoId;
+    if (titleEl) titleEl.textContent = 'Edit Webhook';
+    if (repoSel) { repoSel.value = config.repoId; repoSel.disabled = true; }
+    if (enabledCb) enabledCb.checked = config.enabled !== false;
+    if (secretInput) secretInput.value = config.secret || '';
+    if (evtPush) evtPush.checked = (config.events || []).includes('push');
+    if (evtPr) evtPr.checked = (config.events || []).includes('pull_request');
+    if (branchesInput) branchesInput.value = (config.branches || []).join(', ');
+  } else {
+    whEditRepoId = null;
+    if (titleEl) titleEl.textContent = 'Add Webhook';
+    if (repoSel) { repoSel.value = ''; repoSel.disabled = false; }
+    if (enabledCb) enabledCb.checked = true;
+    if (secretInput) secretInput.value = '';
+    if (evtPush) evtPush.checked = true;
+    if (evtPr) evtPr.checked = true;
+    if (branchesInput) branchesInput.value = '';
+  }
+
+  // Secret reveal toggle
+  if (secretInput) secretInput.type = 'password';
+  if (revealBtn) {
+    revealBtn.textContent = 'Show';
+    revealBtn.onclick = () => {
+      const isHidden = secretInput.type === 'password';
+      secretInput.type = isHidden ? 'text' : 'password';
+      revealBtn.textContent = isHidden ? 'Hide' : 'Show';
+    };
+  }
+
+  // Generate random secret
+  if (genBtn) {
+    genBtn.onclick = () => {
+      const arr = new Uint8Array(32);
+      crypto.getRandomValues(arr);
+      const hex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+      if (secretInput) secretInput.value = hex;
+      if (secretInput) secretInput.type = 'text';
+      if (revealBtn) revealBtn.textContent = 'Hide';
+    };
+  }
+
+  const closeModal = () => overlay.classList.add('hidden');
+  const closeBtn = $('#wh-modal-close');
+  const cancelBtn = $('#wh-modal-cancel');
+  if (closeBtn) closeBtn.onclick = closeModal;
+  if (cancelBtn) cancelBtn.onclick = closeModal;
+  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+  const submitBtn = $('#wh-modal-submit');
+  if (submitBtn) {
+    submitBtn.onclick = async () => {
+      const repoId = whEditRepoId || (repoSel ? repoSel.value : '');
+      if (!repoId) { showToast('Please select a repository'); return; }
+
+      const events = [];
+      if (evtPush && evtPush.checked) events.push('push');
+      if (evtPr && evtPr.checked) events.push('pull_request');
+
+      const branchStr = branchesInput ? branchesInput.value.trim() : '';
+      const branches = branchStr ? branchStr.split(',').map(b => b.trim()).filter(Boolean) : [];
+
+      const body = {
+        enabled: enabledCb ? enabledCb.checked : true,
+        secret: secretInput ? secretInput.value.trim() : '',
+        events,
+        branches
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+      try {
+        const resp = await fetch('/api/webhooks/configs/' + encodeURIComponent(repoId), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!resp.ok) { const err = await resp.json(); showToast('Error: ' + (err.error || 'Failed')); return; }
+        showToast('Webhook config saved');
+        closeModal();
+        await loadWebhookConfigs();
+      } catch {
+        showToast('Error saving webhook config');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save';
+      }
+    };
+  }
+}
+
+function setupWebhookBindings() {
+  const addBtn = $('#wh-add-btn');
+  if (addBtn) addBtn.onclick = () => openWebhookModal(null);
 }
 
 // --- Pipeline Stats Widget (Overview) ---

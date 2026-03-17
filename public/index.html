@@ -289,6 +289,57 @@
           </div>
           <div class="card-body" id="pipeline-repo-config-panel">Loading&hellip;</div>
         </div>
+        <!-- Webhook Config Section -->
+        <div class="card" id="card-webhook-settings">
+          <div class="card-header">
+            <h2>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Webhook Triggers
+            </h2>
+            <button class="pl-new-run-btn" id="wh-add-btn">+ Add Webhook</button>
+          </div>
+          <div class="card-body" id="webhook-config-panel">Loading&hellip;</div>
+        </div>
+        <!-- Webhook Config Modal -->
+        <div class="pl-modal-overlay hidden" id="wh-modal-overlay">
+          <div class="pl-modal">
+            <div class="pl-modal-header">
+              <h2 id="wh-modal-title">Add Webhook</h2>
+              <button class="pl-modal-close" id="wh-modal-close">&times;</button>
+            </div>
+            <div class="pl-modal-body">
+              <label class="pl-modal-label">Repository
+                <select id="wh-modal-repo"><option value="">Select a repo...</option></select>
+              </label>
+              <label class="pl-modal-label">
+                <span class="wh-toggle-row">
+                  <input type="checkbox" id="wh-modal-enabled" checked>
+                  <span>Enabled</span>
+                </span>
+              </label>
+              <label class="pl-modal-label">Webhook Secret
+                <div class="wh-secret-row">
+                  <input type="password" id="wh-modal-secret" placeholder="Auto-generated if empty" class="wh-secret-input">
+                  <button class="wh-reveal-btn" id="wh-modal-reveal" type="button" title="Show/hide secret">Show</button>
+                  <button class="wh-gen-btn" id="wh-modal-gen" type="button" title="Generate random secret">Generate</button>
+                </div>
+              </label>
+              <label class="pl-modal-label">Trigger Events
+                <div class="wh-checkbox-group">
+                  <label><input type="checkbox" id="wh-evt-push" checked> Push</label>
+                  <label><input type="checkbox" id="wh-evt-pr" checked> Pull Request</label>
+                </div>
+              </label>
+              <label class="pl-modal-label">Branch Patterns <span class="pl-optional">(comma-separated, empty = all)</span>
+                <input type="text" id="wh-modal-branches" placeholder="e.g. main, feature/*">
+              </label>
+            </div>
+            <div class="pl-modal-footer">
+              <button class="pl-modal-cancel-btn" id="wh-modal-cancel">Cancel</button>
+              <button class="pl-modal-submit-btn" id="wh-modal-submit">Save</button>
+            </div>
+          </div>
+        </div>
         <!-- New Run Modal -->
         <div class="pl-modal-overlay hidden" id="pl-modal-overlay">
           <div class="pl-modal">
