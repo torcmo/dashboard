@@ -89,7 +89,7 @@ function syncPanels(route) {
   if (route === 'overview') return;
   if (route === 'campaigns') { loadCampaigns(); return; }
   if (route === 'marketing') { loadMarketing(); return; }
-  if (route === 'pipeline') { loadPipeline(); loadKnownRepos(); loadRepoConfigs(); loadWebhookConfigs(); setupRepoConfigBindings(); setupWebhookBindings(); return; }
+  if (route === 'pipeline') { loadPipeline(); loadKnownRepos(); loadRepoConfigs(); loadWebhookConfigs(); loadNotificationConfig(); setupRepoConfigBindings(); setupWebhookBindings(); setupNotificationBindings(); return; }
   // Stop pipeline auto-refresh when navigating away
   stopPlAutoRefresh();
   disconnectPipelineLogs();
@@ -2193,6 +2193,183 @@ function openWebhookModal(config) {
 function setupWebhookBindings() {
   const addBtn = $('#wh-add-btn');
   if (addBtn) addBtn.onclick = () => openWebhookModal(null);
+}
+
+// --- Notification Preferences ---
+
+const NOTIF_EVENTS = ['started', 'review_done', 'qa_done', 'completed', 'failed'];
+const NOTIF_LABELS = {
+  started: 'Pipeline Started',
+  review_done: 'Review Done',
+  qa_done: 'QA Done',
+  completed: 'Pipeline Completed',
+  failed: 'Pipeline Failed'
+};
+
+let notifConfig = { defaults: {}, users: {} };
+
+async function loadNotificationConfig() {
+  try {
+    notifConfig = await fetch('/api/pipeline/notifications').then(r => r.json());
+  } catch {
+    notifConfig = { defaults: { started: true, review_done: true, qa_done: true, completed: true, failed: true }, users: {} };
+  }
+  renderNotificationConfig();
+}
+
+function renderNotificationConfig() {
+  const panel = $('#notification-config-panel');
+  if (!panel) return;
+  panel.textContent = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'pl-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'pl-table';
+
+  // Header row
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  const thUser = document.createElement('th');
+  thUser.textContent = 'User / Default';
+  headRow.appendChild(thUser);
+  NOTIF_EVENTS.forEach(evt => {
+    const th = document.createElement('th');
+    th.textContent = NOTIF_LABELS[evt];
+    th.style.textAlign = 'center';
+    headRow.appendChild(th);
+  });
+  const thActions = document.createElement('th');
+  thActions.textContent = '';
+  headRow.appendChild(thActions);
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  // Defaults row
+  const defRow = document.createElement('tr');
+  defRow.className = 'pl-run-row';
+  const defLabel = document.createElement('td');
+  const defBold = document.createElement('strong');
+  defBold.textContent = 'Global Defaults';
+  defLabel.appendChild(defBold);
+  defRow.appendChild(defLabel);
+  NOTIF_EVENTS.forEach(evt => {
+    const td = document.createElement('td');
+    td.style.textAlign = 'center';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = notifConfig.defaults?.[evt] !== false;
+    cb.dataset.scope = 'defaults';
+    cb.dataset.event = evt;
+    cb.onchange = () => saveNotificationConfig();
+    td.appendChild(cb);
+    defRow.appendChild(td);
+  });
+  const defActions = document.createElement('td');
+  defRow.appendChild(defActions);
+  tbody.appendChild(defRow);
+
+  // Per-user rows
+  const users = Object.keys(notifConfig.users || {}).sort();
+  users.forEach(userId => {
+    const userPrefs = notifConfig.users[userId];
+    const tr = document.createElement('tr');
+    tr.className = 'pl-run-row';
+    const tdUser = document.createElement('td');
+    tdUser.className = 'pl-cell-repo';
+    tdUser.textContent = userId;
+    tr.appendChild(tdUser);
+
+    NOTIF_EVENTS.forEach(evt => {
+      const td = document.createElement('td');
+      td.style.textAlign = 'center';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = userPrefs[evt] !== false;
+      cb.dataset.scope = userId;
+      cb.dataset.event = evt;
+      cb.onchange = () => saveNotificationConfig();
+      td.appendChild(cb);
+      tr.appendChild(td);
+    });
+
+    const tdActions = document.createElement('td');
+    tdActions.className = 'pl-repo-actions';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'pl-action-btn pl-action-cancel';
+    delBtn.textContent = 'Remove';
+    delBtn.style.cssText = 'font-size:.7rem;padding:3px 10px';
+    delBtn.onclick = async () => {
+      delete notifConfig.users[userId];
+      await saveNotificationConfig();
+    };
+    tdActions.appendChild(delBtn);
+    tr.appendChild(tdActions);
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  panel.appendChild(wrap);
+}
+
+async function saveNotificationConfig() {
+  // Read all checkboxes from the table
+  const panel = $('#notification-config-panel');
+  if (!panel) return;
+
+  const updated = { defaults: {}, users: { ...(notifConfig.users || {}) } };
+
+  panel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    const scope = cb.dataset.scope;
+    const evt = cb.dataset.event;
+    if (!scope || !evt) return;
+    if (scope === 'defaults') {
+      updated.defaults[evt] = cb.checked;
+    } else {
+      if (!updated.users[scope]) updated.users[scope] = {};
+      updated.users[scope][evt] = cb.checked;
+    }
+  });
+
+  try {
+    const resp = await fetch('/api/pipeline/notifications', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated)
+    });
+    if (resp.ok) {
+      notifConfig = await resp.json();
+      showToast('Notification preferences saved');
+    } else {
+      showToast('Failed to save notification preferences');
+    }
+  } catch {
+    showToast('Error saving notification preferences');
+  }
+  renderNotificationConfig();
+}
+
+function setupNotificationBindings() {
+  const addBtn = $('#notif-add-user-btn');
+  if (addBtn) {
+    addBtn.onclick = () => {
+      const userId = prompt('Enter user ID (e.g. user@example.com):');
+      if (!userId || !userId.trim()) return;
+      const trimmed = userId.trim();
+      if (!notifConfig.users) notifConfig.users = {};
+      if (notifConfig.users[trimmed]) {
+        showToast('User already exists');
+        return;
+      }
+      notifConfig.users[trimmed] = {
+        started: true, review_done: true, qa_done: true, completed: true, failed: true
+      };
+      saveNotificationConfig();
+    };
+  }
 }
 
 // --- Pipeline Stats Widget (Overview) ---

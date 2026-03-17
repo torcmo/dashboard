@@ -752,4 +752,140 @@ router.delete('/repo-configs/:repoId', async (req, res) => {
   }
 });
 
-module.exports = router;
+// --- Notification Preferences ---
+
+// Default notification preferences: all events enabled for all users
+const DEFAULT_NOTIFICATIONS = {
+  // Global defaults — apply when a user has no specific overrides
+  defaults: {
+    started: true,
+    review_done: true,
+    qa_done: true,
+    completed: true,
+    failed: true
+  },
+  // Per-user overrides: { "user@example.com": { started: false, ... } }
+  users: {}
+};
+
+const NOTIFICATION_EVENTS = ['started', 'review_done', 'qa_done', 'completed', 'failed'];
+
+async function getNotificationConfig() {
+  try {
+    const { rows } = await pool.query(
+      "SELECT value FROM pipeline_config WHERE key = 'notifications'"
+    );
+    if (rows.length > 0) return rows[0].value;
+  } catch { /* table may not exist */ }
+  return DEFAULT_NOTIFICATIONS;
+}
+
+// --- GET /api/pipeline/notifications — Get notification preferences ---
+
+router.get('/notifications', async (req, res) => {
+  try {
+    const config = await getNotificationConfig();
+    res.json(config);
+  } catch (err) {
+    console.error('[pipeline-routes] Get notifications error:', err.message);
+    res.status(500).json({ error: 'Failed to get notification config', details: err.message });
+  }
+});
+
+// --- PUT /api/pipeline/notifications — Update notification preferences ---
+
+const NotificationConfigBody = Type.Object({
+  defaults: Type.Optional(Type.Object({
+    started: Type.Optional(Type.Boolean()),
+    review_done: Type.Optional(Type.Boolean()),
+    qa_done: Type.Optional(Type.Boolean()),
+    completed: Type.Optional(Type.Boolean()),
+    failed: Type.Optional(Type.Boolean())
+  })),
+  users: Type.Optional(Type.Record(Type.String(), Type.Object({
+    started: Type.Optional(Type.Boolean()),
+    review_done: Type.Optional(Type.Boolean()),
+    qa_done: Type.Optional(Type.Boolean()),
+    completed: Type.Optional(Type.Boolean()),
+    failed: Type.Optional(Type.Boolean())
+  })))
+});
+
+router.put('/notifications', requirePermission('canConfigure'), validate(NotificationConfigBody), async (req, res) => {
+  try {
+    const current = await getNotificationConfig();
+    const updated = {
+      defaults: { ...current.defaults, ...(req.body.defaults || {}) },
+      users: { ...current.users, ...(req.body.users || {}) }
+    };
+
+    const userId = getUserId(req);
+    await pool.query(
+      `INSERT INTO pipeline_config (key, value, updated_by) VALUES ('notifications', $1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = NOW()`,
+      [JSON.stringify(updated), userId || 'system']
+    );
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[pipeline-routes] Update notifications error:', err.message);
+    res.status(500).json({ error: 'Failed to update notification config', details: err.message });
+  }
+});
+
+// --- GET /api/pipeline/summary — Overall system health ---
+
+router.get('/summary', async (req, res) => {
+  try {
+    const { rows: totals } = await pool.query(`
+      SELECT
+        COUNT(*) AS total_runs,
+        COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+        COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+        COUNT(*) FILTER (WHERE status IN ('completed', 'failed')) AS finished,
+        COUNT(*) FILTER (WHERE status IN ('queued', 'running')) AS active_runs,
+        COALESCE(SUM(cost_usd), 0) AS total_cost
+      FROM pipeline_runs
+    `);
+
+    const t = totals[0];
+    const totalRuns = parseInt(t.total_runs);
+    const finished = parseInt(t.finished);
+    const successRate = finished > 0
+      ? Math.round((parseInt(t.completed) / finished) * 100)
+      : 0;
+
+    // Last failure
+    const { rows: failRows } = await pool.query(`
+      SELECT id, task_id, repo, current_stage, completed_at, result
+      FROM pipeline_runs
+      WHERE status = 'failed'
+      ORDER BY completed_at DESC NULLS LAST
+      LIMIT 1
+    `);
+
+    const lastFailure = failRows.length > 0 ? {
+      id: failRows[0].id,
+      taskId: failRows[0].task_id,
+      repo: failRows[0].repo,
+      failedStage: failRows[0].current_stage,
+      completedAt: failRows[0].completed_at ? failRows[0].completed_at.toISOString() : null,
+      error: failRows[0].result?.error || null
+    } : null;
+
+    res.json({
+      totalRuns,
+      successRate,
+      activeRuns: parseInt(t.active_runs),
+      completed: parseInt(t.completed),
+      failed: parseInt(t.failed),
+      lastFailure,
+      totalCostUsd: parseFloat(t.total_cost) || 0
+    });
+  } catch (err) {
+    console.error('[pipeline-routes] Summary error:', err.message);
+    res.status(500).json({ error: 'Failed to get pipeline summary', details: err.message });
+  }
+});
+
+module.exports = { router, getNotificationConfig, NOTIFICATION_EVENTS };

@@ -3,6 +3,7 @@ const { execFileSync } = require('child_process');
 const path = require('path');
 const { pool } = require('./db');
 const { STAGES, executeStageWithTracking, updateRun } = require('./pipeline-stages');
+const { getNotificationConfig, NOTIFICATION_EVENTS } = require('../routes/pipeline');
 
 const WORKSPACE_DIR = path.join(__dirname, '..', '..');
 
@@ -121,9 +122,40 @@ async function rollbackDeploy(run) {
   }
 }
 
+// Check notification preferences and emit an openclaw system event if enabled
+async function emitNotification(event, run, details = {}) {
+  try {
+    const config = await getNotificationConfig();
+    const userId = run.triggered_by;
+
+    // Check user-specific override first, then fall back to global defaults
+    const userPrefs = userId && config.users?.[userId];
+    const enabled = userPrefs ? userPrefs[event] !== false : config.defaults?.[event] !== false;
+
+    if (!enabled) {
+      console.log(`[pipeline-engine] Notification '${event}' suppressed for run ${run.id}`);
+      return;
+    }
+
+    // Log as an audit event (serves as the openclaw system event)
+    await auditLog(run.id, `notification.${event}`, 'system', {
+      event,
+      taskId: run.task_id,
+      repo: run.repo,
+      ...details
+    });
+
+    console.log(`[pipeline-engine] Notification '${event}' sent for run ${run.id} (task: ${run.task_id})`);
+  } catch (err) {
+    console.error('[pipeline-engine] Notification emit failed:', err.message);
+  }
+}
+
 // Execute all stages sequentially for a run
 async function executePipeline(run) {
   console.log(`[pipeline-engine] Starting run ${run.id} (task: ${run.task_id}, repo: ${run.repo})`);
+
+  await emitNotification('started', run, { message: `Pipeline ${run.task_id || run.id} started for ${run.repo}` });
 
   // Get all stage rows for this run (created when the run was queued)
   const { rows: stageRows } = await pool.query(
@@ -188,6 +220,13 @@ async function executePipeline(run) {
 
       await executeStageWithTracking(currentRun, stageName, stageRow);
 
+      // Emit stage-specific notifications
+      if (stageName === 'review') {
+        await emitNotification('review_done', currentRun, { message: `Review completed for ${currentRun.task_id || currentRun.id}` });
+      } else if (stageName === 'qa') {
+        await emitNotification('qa_done', currentRun, { message: `QA completed for ${currentRun.task_id || currentRun.id}` });
+      }
+
       // Track which stages have passed for rollback decisions
       if (stageName === 'merge') mergeCompleted = true;
     }
@@ -196,6 +235,10 @@ async function executePipeline(run) {
     await updateRun(run.id, {
       status: 'completed',
       completedAt: new Date().toISOString()
+    });
+
+    await emitNotification('completed', currentRun, {
+      message: `Pipeline ${run.task_id || run.id} deployed (PR #${currentRun.pr_number}, $${parseFloat(currentRun.cost_usd) || 0})`
     });
 
     console.log(`[pipeline-engine] Run ${run.id} completed successfully`);
@@ -223,6 +266,12 @@ async function executePipeline(run) {
       status: 'failed',
       completedAt: new Date().toISOString(),
       result: JSON.stringify(resultPayload)
+    });
+
+    await emitNotification('failed', currentRun, {
+      message: `Pipeline ${run.task_id || run.id} FAILED at ${failedStage}: ${err.message}`,
+      stage: failedStage,
+      error: err.message
     });
 
     console.error(`[pipeline-engine] Run ${run.id} failed at stage ${failedStage}:`, err.message);

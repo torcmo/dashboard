@@ -191,6 +191,18 @@ Output a structured review with: ISSUES FOUND (critical/warning/info), SUMMARY, 
   const timeout = run.config?.reviewTimeout || STAGE_DEFAULTS.review.timeout;
   const result = await runClaude(prompt, workdir, timeout);
 
+  // Post review results as a PR comment
+  if (run.pr_number) {
+    try {
+      const verdict = /verdict.*request[- ]?changes/i.test(result.output) ? 'CHANGES REQUESTED' : 'APPROVED';
+      const comment = `## Code Review: ${verdict}\n\n${(result.output || '').slice(0, 4000)}\n\n---\n*Automated review by pipeline engine*`;
+      const provider = createProvider(run.provider, GITHUB_ORG);
+      provider.postPRComment(run.repo, run.pr_number, comment);
+    } catch (err) {
+      console.error('[pipeline-stages] Failed to post review PR comment:', err.message);
+    }
+  }
+
   return { output: result.output, costUsd: result.costUsd };
 }
 
@@ -259,7 +271,21 @@ async function executeQA(run, stageRow) {
   }
 
   const hasFail = results.some(r => r.startsWith('FAIL'));
-  const output = results.join('\n') + `\n\nQA RESULT: ${hasFail ? 'FAILED' : 'PASSED'} (${results.filter(r => r.startsWith('PASS')).length}/${results.length} passed)`;
+  const passCount = results.filter(r => r.startsWith('PASS')).length;
+  const failCount = results.filter(r => r.startsWith('FAIL')).length;
+  const output = results.join('\n') + `\n\nQA RESULT: ${hasFail ? 'FAILED' : 'PASSED'} (${passCount}/${results.length} passed)`;
+
+  // Post QA results as a PR comment
+  if (run.pr_number) {
+    try {
+      const status = hasFail ? 'FAILED' : 'PASSED';
+      const comment = `## QA Results: ${status}\n\n| Metric | Count |\n|---|---|\n| Passed | ${passCount} |\n| Failed | ${failCount} |\n| Total | ${results.length} |\n\n### Details\n\`\`\`\n${results.join('\n')}\n\`\`\`\n\n---\n*Automated QA by pipeline engine*`;
+      const provider = createProvider(run.provider, GITHUB_ORG);
+      provider.postPRComment(run.repo, run.pr_number, comment);
+    } catch (err) {
+      console.error('[pipeline-stages] Failed to post QA PR comment:', err.message);
+    }
+  }
 
   if (hasFail) {
     throw new Error(output);
