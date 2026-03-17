@@ -127,6 +127,13 @@
           </div>
           <div class="card-body" id="cron-panel">Loading&hellip;</div>
         </div>
+        <div class="card" id="card-pipeline-stats">
+          <div class="card-header">
+            <h2>Pipeline Stats</h2>
+            <span class="badge">7-day</span>
+          </div>
+          <div class="card-body" id="pipeline-stats-panel">Loading&hellip;</div>
+        </div>
         <div class="card card-full" id="card-tasks">
           <div class="card-header">
             <h2>CI/CD Pipeline</h2>
@@ -238,6 +245,22 @@
                 </div>
                 <div class="card-body" id="pipeline-detail-panel">Loading&hellip;</div>
               </div>
+              <!-- Live Log Panel -->
+              <div class="card pl-log-card" id="card-pipeline-logs">
+                <div class="card-header">
+                  <h2>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    Live Logs
+                  </h2>
+                  <div class="pl-log-controls">
+                    <span class="pl-log-status" id="pl-log-status">● Connecting</span>
+                    <button class="terminal-btn terminal-btn-clear" id="pl-log-clear" title="Clear">⌫</button>
+                  </div>
+                </div>
+                <div class="pl-log-body" id="pl-log-body">
+                  <pre class="pl-log-output" id="pl-log-output">Connecting to pipeline logs...</pre>
+                </div>
+              </div>
             </div>
             <div class="pl-detail-sidebar">
               <div class="card">
@@ -252,6 +275,38 @@
                 <div class="card-header"><h2>Audit Log</h2></div>
                 <div class="card-body" id="pl-sidebar-audit">Loading&hellip;</div>
               </div>
+            </div>
+          </div>
+        </div>
+        <!-- New Run Modal -->
+        <div class="pl-modal-overlay hidden" id="pl-modal-overlay">
+          <div class="pl-modal">
+            <div class="pl-modal-header">
+              <h2>New Pipeline Run</h2>
+              <button class="pl-modal-close" id="pl-modal-close">&times;</button>
+            </div>
+            <div class="pl-modal-body">
+              <label class="pl-modal-label">Task ID <span class="pl-optional">(optional)</span>
+                <input type="text" id="pl-modal-taskid" placeholder="e.g. pg-03">
+              </label>
+              <label class="pl-modal-label">Repository
+                <select id="pl-modal-repo"><option value="">Select a repo...</option></select>
+              </label>
+              <label class="pl-modal-label pl-modal-wide">Prompt
+                <textarea id="pl-modal-prompt" rows="4" placeholder="Describe the coding task..."></textarea>
+              </label>
+              <div class="pl-modal-toggles">
+                <label class="pl-toggle-label"><input type="checkbox" id="pl-modal-automerge" checked> Auto-merge</label>
+                <label class="pl-toggle-label"><input type="checkbox" id="pl-modal-skipreview"> Skip Review</label>
+                <label class="pl-toggle-label"><input type="checkbox" id="pl-modal-skipqa"> Skip QA</label>
+              </div>
+              <label class="pl-modal-label">Timeout (seconds): <span id="pl-modal-timeout-val">600</span>
+                <input type="range" id="pl-modal-timeout" min="60" max="3600" step="60" value="600" class="pl-slider">
+              </label>
+            </div>
+            <div class="pl-modal-footer">
+              <button class="pl-modal-cancel-btn" id="pl-modal-cancel">Cancel</button>
+              <button class="pl-modal-submit-btn" id="pl-modal-submit">Create Run</button>
             </div>
           </div>
         </div>

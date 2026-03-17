@@ -89,7 +89,11 @@ function syncPanels(route) {
   if (route === 'overview') return;
   if (route === 'campaigns') { loadCampaigns(); return; }
   if (route === 'marketing') { loadMarketing(); return; }
-  if (route === 'pipeline') { loadPipeline(); return; }
+  if (route === 'pipeline') { loadPipeline(); loadKnownRepos(); return; }
+  // Stop pipeline auto-refresh when navigating away
+  stopPlAutoRefresh();
+  disconnectPipelineLogs();
+  plCurrentDetailRunId = null;
   if (route === 'team') { loadTeam(); return; }
   const panelMap = { usage: 'usage-panel', cron: 'cron-panel', tasks: 'kanban-panel' };
   const sourceId = panelMap[route];
@@ -970,6 +974,11 @@ const PL_STAGE_STATUS_ICON = {
 
 let plExpandedStage = null;
 let plNewRunVisible = false;
+let plLogEventSource = null;
+let plCurrentDetailRunId = null;
+let plAutoRefreshList = null;
+let plAutoRefreshDetail = null;
+let plKnownRepos = [];
 
 function fmtDuration(secs) {
   if (secs == null) return '--';
@@ -1154,22 +1163,122 @@ function renderPipelineRunList(runs) {
   if (statusSel) statusSel.onchange = () => loadPipeline();
   if (repoSel) repoSel.onchange = () => loadPipeline();
 
-  // Bind new run button
+  // Bind new run button to modal
   const newBtn = $('#pl-new-run-btn');
-  if (newBtn) newBtn.onclick = () => { plNewRunVisible = !plNewRunVisible; loadPipeline(); };
+  if (newBtn) newBtn.onclick = () => openNewRunModal();
+
+  // Start auto-refresh when on pipeline list
+  startPlListAutoRefresh();
 }
 
 async function showPipelineDetail(runId) {
   $('#pipeline-list-view').classList.add('hidden');
   $('#pipeline-detail-view').classList.remove('hidden');
   plExpandedStage = null;
+  plCurrentDetailRunId = runId;
+
+  // Stop list auto-refresh, start detail auto-refresh
+  stopPlAutoRefresh();
+  plAutoRefreshDetail = setInterval(() => refreshPipelineDetail(), 10000);
 
   try {
     const run = await fetch('/api/pipeline/runs/' + encodeURIComponent(runId)).then(r => r.json());
     renderPipelineDetail(run);
+    connectPipelineLogs(runId);
   } catch {
     const p = $('#pipeline-detail-panel');
     if (p) p.textContent = 'Failed to load run details.';
+  }
+}
+
+async function refreshPipelineDetail() {
+  if (!plCurrentDetailRunId) return;
+  try {
+    const run = await fetch('/api/pipeline/runs/' + encodeURIComponent(plCurrentDetailRunId)).then(r => r.json());
+    renderPipelineDetail(run);
+  } catch { /* silent */ }
+}
+
+// --- Pipeline Live Logs (SSE) ---
+
+const PL_STAGE_LABELS_UPPER = { build: 'BUILD', pr: 'PR', review: 'REVIEW', qa: 'QA', staging: 'STAGING', merge: 'MERGE', deploy: 'DEPLOY' };
+
+function connectPipelineLogs(runId) {
+  disconnectPipelineLogs();
+
+  const output = $('#pl-log-output');
+  const statusEl = $('#pl-log-status');
+  if (!output) return;
+
+  output.textContent = '';
+  if (statusEl) { statusEl.textContent = '● Connecting'; statusEl.className = 'pl-log-status'; }
+
+  plLogEventSource = new EventSource('/api/pipeline/runs/' + encodeURIComponent(runId) + '/logs');
+
+  plLogEventSource.onopen = () => {
+    if (statusEl) { statusEl.textContent = '● Live'; statusEl.className = 'pl-log-status connected'; }
+  };
+
+  plLogEventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'stage') {
+        const header = document.createElement('span');
+        header.className = 'pl-log-stage-header' + (data.status === 'passed' ? ' passed' : data.status === 'failed' ? ' failed' : '');
+        const icon = data.status === 'passed' ? '\u2713' : data.status === 'failed' ? '\u2715' : '\u25b6';
+        header.textContent = `${icon} ${PL_STAGE_LABELS_UPPER[data.stage] || data.stage} — ${data.status}`;
+        if (data.durationMs) header.textContent += ` (${fmtDurationMs(data.durationMs)})`;
+        if (data.costUsd > 0) header.textContent += ` $${data.costUsd.toFixed(4)}`;
+        output.appendChild(header);
+        output.appendChild(document.createTextNode('\n'));
+      }
+
+      if (data.type === 'output' && data.content) {
+        const lines = data.content.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('[ERROR]')) {
+            const errSpan = document.createElement('span');
+            errSpan.className = 'pl-log-error';
+            errSpan.textContent = line;
+            output.appendChild(errSpan);
+          } else {
+            output.appendChild(document.createTextNode(line));
+          }
+          output.appendChild(document.createTextNode('\n'));
+        }
+      }
+
+      if (data.type === 'done') {
+        if (statusEl) { statusEl.textContent = '● Done'; statusEl.className = 'pl-log-status done'; }
+        disconnectPipelineLogs();
+      }
+
+      if (data.type === 'error') {
+        const errSpan = document.createElement('span');
+        errSpan.className = 'pl-log-error';
+        errSpan.textContent = '[ERROR] ' + data.message + '\n';
+        output.appendChild(errSpan);
+      }
+
+      // Auto-scroll to bottom
+      output.scrollTop = output.scrollHeight;
+    } catch { /* malformed event */ }
+  };
+
+  plLogEventSource.onerror = () => {
+    if (statusEl) { statusEl.textContent = '● Disconnected'; statusEl.className = 'pl-log-status'; }
+  };
+
+  // Clear button
+  const clearBtn = $('#pl-log-clear');
+  if (clearBtn) clearBtn.onclick = () => { output.textContent = ''; };
+}
+
+function disconnectPipelineLogs() {
+  if (plLogEventSource) {
+    plLogEventSource.close();
+    plLogEventSource = null;
   }
 }
 
@@ -1446,10 +1555,247 @@ function renderPipelineDetail(run) {
   // Back button
   const backBtn = $('#pl-back-btn');
   if (backBtn) backBtn.onclick = () => {
+    disconnectPipelineLogs();
+    plCurrentDetailRunId = null;
+    stopPlAutoRefresh();
     $('#pipeline-detail-view').classList.add('hidden');
     $('#pipeline-list-view').classList.remove('hidden');
     loadPipeline();
+    startPlListAutoRefresh();
   };
+}
+
+// --- Pipeline Auto-Refresh ---
+
+function startPlListAutoRefresh() {
+  stopPlAutoRefresh();
+  plAutoRefreshList = setInterval(loadPipeline, 10000);
+}
+
+function stopPlAutoRefresh() {
+  if (plAutoRefreshList) { clearInterval(plAutoRefreshList); plAutoRefreshList = null; }
+  if (plAutoRefreshDetail) { clearInterval(plAutoRefreshDetail); plAutoRefreshDetail = null; }
+}
+
+// --- New Run Modal ---
+
+async function loadKnownRepos() {
+  try {
+    plKnownRepos = await fetch('/api/pipeline/repos').then(r => r.json());
+  } catch {
+    plKnownRepos = ['torcmo/marketing-command-center', 'torcmo/dashboard'];
+  }
+}
+
+function openNewRunModal() {
+  const overlay = $('#pl-modal-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+
+  // Populate repo dropdown
+  const repoSelect = $('#pl-modal-repo');
+  if (repoSelect) {
+    repoSelect.textContent = '';
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = 'Select a repo...';
+    repoSelect.appendChild(defaultOpt);
+    plKnownRepos.forEach(repo => {
+      const opt = document.createElement('option');
+      opt.value = repo;
+      opt.textContent = repo;
+      repoSelect.appendChild(opt);
+    });
+  }
+
+  // Reset form
+  const tid = $('#pl-modal-taskid'); if (tid) tid.value = '';
+  const prompt = $('#pl-modal-prompt'); if (prompt) prompt.value = '';
+  const am = $('#pl-modal-automerge'); if (am) am.checked = true;
+  const sr = $('#pl-modal-skipreview'); if (sr) sr.checked = false;
+  const sq = $('#pl-modal-skipqa'); if (sq) sq.checked = false;
+  const slider = $('#pl-modal-timeout'); if (slider) slider.value = '600';
+  const sliderVal = $('#pl-modal-timeout-val'); if (sliderVal) sliderVal.textContent = '600';
+
+  // Timeout slider live update
+  if (slider) slider.oninput = () => {
+    if (sliderVal) sliderVal.textContent = slider.value;
+  };
+
+  // Close handlers
+  const closeBtn = $('#pl-modal-close');
+  const cancelBtn = $('#pl-modal-cancel');
+  const closeModal = () => overlay.classList.add('hidden');
+  if (closeBtn) closeBtn.onclick = closeModal;
+  if (cancelBtn) cancelBtn.onclick = closeModal;
+  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+  // Submit handler
+  const submitBtn = $('#pl-modal-submit');
+  if (submitBtn) {
+    submitBtn.onclick = async () => {
+      const repo = ($('#pl-modal-repo') || {}).value;
+      const promptVal = ($('#pl-modal-prompt') || {}).value?.trim();
+      if (!repo || !promptVal) { showToast('Repository and prompt are required'); return; }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating...';
+
+      try {
+        const body = {
+          repo,
+          prompt: promptVal,
+          taskId: ($('#pl-modal-taskid') || {}).value?.trim() || undefined,
+          config: {
+            autoMerge: $('#pl-modal-automerge')?.checked !== false,
+            skipReview: $('#pl-modal-skipreview')?.checked || false,
+            skipQA: $('#pl-modal-skipqa')?.checked || false,
+            timeoutSeconds: parseInt($('#pl-modal-timeout')?.value || '600', 10)
+          }
+        };
+
+        const resp = await fetch('/api/pipeline/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          showToast('Error: ' + (err.error || 'Failed'));
+          return;
+        }
+
+        showToast('Pipeline run created');
+        closeModal();
+        await loadPipeline();
+      } catch {
+        showToast('Error creating pipeline run');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Run';
+      }
+    };
+  }
+}
+
+// --- Pipeline Stats Widget (Overview) ---
+
+async function loadPipelineStats() {
+  const panel = $('#pipeline-stats-panel');
+  if (!panel) return;
+
+  try {
+    const stats = await fetch('/api/pipeline/stats').then(r => r.json());
+    renderPipelineStats(panel, stats);
+  } catch {
+    panel.textContent = 'Failed to load stats';
+  }
+}
+
+function renderPipelineStats(panel, stats) {
+  panel.textContent = '';
+
+  const widget = document.createElement('div');
+  widget.className = 'pl-stats-widget';
+
+  // Donut chart via SVG (CSS-only, no chart library)
+  const donutWrap = document.createElement('div');
+  donutWrap.className = 'pl-stats-donut-wrap';
+
+  const donut = document.createElement('div');
+  donut.className = 'pl-stats-donut';
+
+  const pct = stats.successRate || 0;
+  const circumference = 2 * Math.PI * 40;
+  const filled = (pct / 100) * circumference;
+  const remaining = circumference - filled;
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  const bgCircle = document.createElementNS(svgNS, 'circle');
+  bgCircle.setAttribute('cx', '50'); bgCircle.setAttribute('cy', '50'); bgCircle.setAttribute('r', '40');
+  bgCircle.setAttribute('fill', 'none'); bgCircle.setAttribute('stroke', 'var(--border)'); bgCircle.setAttribute('stroke-width', '8');
+  const fgCircle = document.createElementNS(svgNS, 'circle');
+  fgCircle.setAttribute('cx', '50'); fgCircle.setAttribute('cy', '50'); fgCircle.setAttribute('r', '40');
+  fgCircle.setAttribute('fill', 'none');
+  fgCircle.setAttribute('stroke', pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--orange)' : 'var(--red)');
+  fgCircle.setAttribute('stroke-width', '8');
+  fgCircle.setAttribute('stroke-dasharray', filled + ' ' + remaining);
+  fgCircle.setAttribute('stroke-linecap', 'round');
+  svg.append(bgCircle, fgCircle);
+  donut.appendChild(svg);
+
+  const donutLabel = document.createElement('div');
+  donutLabel.className = 'pl-stats-donut-label';
+  donutLabel.textContent = pct + '%';
+  donut.appendChild(donutLabel);
+
+  const sub = document.createElement('div');
+  sub.className = 'pl-stats-donut-sub';
+  sub.textContent = 'Success Rate';
+
+  donutWrap.append(donut, sub);
+
+  // Right side: metrics + recent runs
+  const right = document.createElement('div');
+  right.className = 'pl-stats-right';
+
+  const metricsDiv = document.createElement('div');
+  metricsDiv.className = 'pl-stats-metrics';
+
+  const metricData = [
+    ['Cost (7d)', '$' + (stats.totalCostWeek || 0).toFixed(2)],
+    ['Avg Duration', fmtDuration(stats.avgDurationSecs)],
+    ['Completed', String(stats.completed || 0)],
+    ['Failed', String(stats.failed || 0)]
+  ];
+
+  metricData.forEach(([lbl, val]) => {
+    const m = document.createElement('div');
+    m.className = 'pl-stats-metric';
+    const lblDiv = document.createElement('div');
+    lblDiv.className = 'label';
+    lblDiv.textContent = lbl;
+    const valDiv = document.createElement('div');
+    valDiv.className = 'value';
+    valDiv.textContent = val;
+    m.append(lblDiv, valDiv);
+    metricsDiv.appendChild(m);
+  });
+
+  // Recent runs
+  const recent = document.createElement('div');
+  recent.className = 'pl-stats-recent';
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'pl-stats-recent-title';
+  titleDiv.textContent = 'Last 5 Runs';
+  recent.appendChild(titleDiv);
+
+  (stats.recentRuns || []).forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'pl-stats-run-row';
+
+    const task = document.createElement('span');
+    task.className = 'pl-stats-run-task';
+    task.textContent = r.taskId || r.id.slice(0, 6);
+
+    const repo = document.createElement('span');
+    repo.className = 'pl-stats-run-repo';
+    repo.textContent = r.repo;
+
+    const badge = document.createElement('span');
+    badge.className = 'pl-status-badge ' + (PL_STATUS_CLASS[r.status] || '');
+    badge.textContent = r.status;
+
+    row.append(task, repo, badge);
+    recent.appendChild(row);
+  });
+
+  right.append(metricsDiv, recent);
+  widget.append(donutWrap, right);
+  panel.appendChild(widget);
 }
 
 // --- Marketing Team ---
@@ -2003,16 +2349,17 @@ async function init() {
   window.addEventListener('hashchange', navigate);
   navigate();
 
-  // Load all data
-  await Promise.all([loadSystem(), loadUsage(), loadCron(), loadTasks()]);
+  // Load all data (including pipeline stats on overview)
+  await Promise.all([loadSystem(), loadUsage(), loadCron(), loadTasks(), loadPipelineStats(), loadKnownRepos()]);
 
   // Init Claude Code terminal
   initClaudeTerminal();
 
-  // Auto-refresh system stats every 5s, usage every 60s, tasks every 10s
+  // Auto-refresh system stats every 5s, usage every 60s, tasks every 10s, pipeline stats every 30s
   setInterval(loadSystem, 5000);
   setInterval(loadUsage, 60000);
   setInterval(loadTasks, 10000);
+  setInterval(loadPipelineStats, 30000);
 }
 
 init();
