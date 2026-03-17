@@ -7,6 +7,83 @@ const { STAGES } = require('../services/pipeline-stages');
 
 const router = express.Router();
 
+// --- RBAC ---
+
+// Default roles seeded into pipeline_config on first access
+const DEFAULT_RBAC = {
+  roles: {
+    operator: { canTrigger: true, canApprove: false, canCancelOwn: true, canCancelAny: false, canConfigure: false },
+    reviewer: { canTrigger: true, canApprove: true, canCancelOwn: true, canCancelAny: false, canConfigure: false },
+    admin:    { canTrigger: true, canApprove: true, canCancelOwn: true, canCancelAny: true, canConfigure: true }
+  },
+  users: {}  // Maps user ID to role, e.g. { "nihal@tor.ai": "admin" }
+};
+
+// Seed RBAC config if it doesn't exist yet
+async function ensureRbacConfig() {
+  const { rows } = await pool.query(
+    "SELECT value FROM pipeline_config WHERE key = 'rbac'"
+  );
+  if (rows.length === 0) {
+    await pool.query(
+      "INSERT INTO pipeline_config (key, value, updated_by) VALUES ('rbac', $1, 'system') ON CONFLICT (key) DO NOTHING",
+      [JSON.stringify(DEFAULT_RBAC)]
+    );
+    return DEFAULT_RBAC;
+  }
+  return rows[0].value;
+}
+
+// Get the user's role from the request. Identity comes from x-pipeline-user header or triggeredBy body field.
+function getUserId(req) {
+  return req.headers['x-pipeline-user'] || req.body?.triggeredBy || null;
+}
+
+// RBAC middleware factory. permission is one of: canTrigger, canApprove, canCancelOwn, canCancelAny, canConfigure
+// For cancel, pass 'canCancel' — the middleware checks own vs any based on run ownership.
+function requirePermission(permission) {
+  return async (req, res, next) => {
+    const userId = getUserId(req);
+
+    // No user identity — allow read-only endpoints (GET), block mutating ones
+    if (!userId) {
+      if (req.method === 'GET') return next();
+      return res.status(401).json({ error: 'Missing user identity. Set x-pipeline-user header.' });
+    }
+
+    try {
+      const rbac = await ensureRbacConfig();
+      const userRole = rbac.users?.[userId] || 'operator'; // Default to operator
+      const rolePerms = rbac.roles?.[userRole];
+
+      if (!rolePerms) {
+        return res.status(403).json({ error: `Unknown role: ${userRole}` });
+      }
+
+      // Special handling for cancel — check ownership
+      if (permission === 'canCancel') {
+        const runId = req.params.id;
+        const { rows } = await pool.query('SELECT triggered_by FROM pipeline_runs WHERE id = $1', [runId]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Run not found' });
+
+        const isOwner = rows[0].triggered_by === userId;
+        if (isOwner && rolePerms.canCancelOwn) return next();
+        if (rolePerms.canCancelAny) return next();
+        return res.status(403).json({ error: `Role '${userRole}' cannot cancel this run` });
+      }
+
+      if (!rolePerms[permission]) {
+        return res.status(403).json({ error: `Role '${userRole}' lacks permission: ${permission}` });
+      }
+
+      next();
+    } catch (err) {
+      console.error('[pipeline-routes] RBAC check error:', err.message);
+      next(); // Fail open for DB errors to avoid blocking the entire pipeline
+    }
+  };
+}
+
 // --- Schemas ---
 
 const CreatePipelineRunBody = Type.Object({
@@ -186,7 +263,7 @@ router.get('/runs/:id', async (req, res) => {
 
 // --- POST /api/pipeline/runs/:id/cancel — Cancel a running pipeline ---
 
-router.post('/runs/:id/cancel', async (req, res) => {
+router.post('/runs/:id/cancel', requirePermission('canCancel'), async (req, res) => {
   try {
     const { rows } = await pool.query(
       "UPDATE pipeline_runs SET status = 'cancelled', completed_at = NOW() WHERE id = $1 AND status IN ('queued', 'running') RETURNING *",
@@ -209,7 +286,7 @@ router.post('/runs/:id/cancel', async (req, res) => {
 
 // --- POST /api/pipeline/runs/:id/approve — Approve staging gate ---
 
-router.post('/runs/:id/approve', async (req, res) => {
+router.post('/runs/:id/approve', requirePermission('canApprove'), async (req, res) => {
   try {
     const { rows } = await pool.query(
       'SELECT * FROM pipeline_runs WHERE id = $1',
@@ -234,7 +311,7 @@ router.post('/runs/:id/approve', async (req, res) => {
 
 // --- POST /api/pipeline/runs — Create and queue a new pipeline run ---
 
-router.post('/runs', validate(CreatePipelineRunBody), async (req, res) => {
+router.post('/runs', requirePermission('canTrigger'), validate(CreatePipelineRunBody), async (req, res) => {
   const { taskId, repo, prompt, provider = 'github', triggeredBy, config = {} } = req.body;
 
   const client = await pool.connect();
@@ -294,7 +371,7 @@ const RetryBody = Type.Object({
   fromStage: Type.String({ minLength: 1 })
 });
 
-router.post('/runs/:id/retry', validate(RetryBody), async (req, res) => {
+router.post('/runs/:id/retry', requirePermission('canTrigger'), validate(RetryBody), async (req, res) => {
   const runId = req.params.id;
   const { fromStage } = req.body;
 
@@ -534,6 +611,73 @@ router.get('/repos', async (req, res) => {
     res.json(repos);
   } catch (err) {
     res.json(['torcmo/marketing-command-center', 'torcmo/dashboard']);
+  }
+});
+
+// --- GET /api/pipeline/config — Get pipeline configuration (RBAC roles + users) ---
+
+router.get('/config', async (req, res) => {
+  try {
+    const rbac = await ensureRbacConfig();
+    res.json(rbac);
+  } catch (err) {
+    console.error('[pipeline-routes] Config get error:', err.message);
+    res.status(500).json({ error: 'Failed to get pipeline config', details: err.message });
+  }
+});
+
+// --- PUT /api/pipeline/config — Update pipeline configuration (admin only) ---
+
+router.put('/config', requirePermission('canConfigure'), async (req, res) => {
+  const { roles, users } = req.body;
+
+  if (!roles && !users) {
+    return res.status(400).json({ error: 'Must provide roles, users, or both' });
+  }
+
+  try {
+    const current = await ensureRbacConfig();
+    const updated = {
+      roles: roles || current.roles,
+      users: users || current.users
+    };
+
+    const userId = getUserId(req);
+    await pool.query(
+      "UPDATE pipeline_config SET value = $1, updated_by = $2, updated_at = NOW() WHERE key = 'rbac'",
+      [JSON.stringify(updated), userId || 'unknown']
+    );
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[pipeline-routes] Config update error:', err.message);
+    res.status(500).json({ error: 'Failed to update pipeline config', details: err.message });
+  }
+});
+
+// --- GET /api/pipeline/cleanup — Truncate old stage outputs (log rotation) ---
+// Stages older than 30 days get their output truncated to first 500 chars.
+
+router.get('/cleanup', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      UPDATE pipeline_stages
+      SET output = LEFT(output, 500)
+      WHERE completed_at < NOW() - INTERVAL '30 days'
+        AND output IS NOT NULL
+        AND LENGTH(output) > 500
+      RETURNING id, stage, run_id
+    `);
+
+    const message = rows.length > 0
+      ? `Truncated ${rows.length} stage outputs older than 30 days`
+      : 'No stage outputs needed truncation';
+
+    console.log(`[pipeline-routes] Cleanup: ${message}`);
+    res.json({ message, truncated: rows.length });
+  } catch (err) {
+    console.error('[pipeline-routes] Cleanup error:', err.message);
+    res.status(500).json({ error: 'Failed to run cleanup', details: err.message });
   }
 });
 

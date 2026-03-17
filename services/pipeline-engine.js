@@ -1,6 +1,10 @@
 // Pipeline engine — polls pipeline_runs for queued jobs using SELECT FOR UPDATE SKIP LOCKED
+const { execFileSync } = require('child_process');
+const path = require('path');
 const { pool } = require('./db');
 const { STAGES, executeStageWithTracking, updateRun } = require('./pipeline-stages');
+
+const WORKSPACE_DIR = path.join(__dirname, '..', '..');
 
 let pollInterval = null;
 let running = false;
@@ -48,6 +52,75 @@ async function pollQueue() {
   }
 }
 
+// Record an action in the audit log
+async function auditLog(runId, action, actor, details = {}) {
+  try {
+    await pool.query(
+      'INSERT INTO pipeline_audit_log (run_id, action, actor, details) VALUES ($1, $2, $3, $4)',
+      [runId, action, actor || 'system', JSON.stringify(details)]
+    );
+  } catch (err) {
+    console.error('[pipeline-engine] Audit log write failed:', err.message);
+  }
+}
+
+// Rollback a deploy failure: revert the merge commit, push, restart from previous commit
+async function rollbackDeploy(run) {
+  const workdir = path.join(WORKSPACE_DIR, run.repo.split('/').pop());
+  const defaultBranch = run.config?.defaultBranch || 'master';
+
+  try {
+    // Get the merge commit (HEAD on the default branch after merge)
+    const mergeCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: workdir, encoding: 'utf8'
+    }).trim();
+
+    // Revert the merge commit (use -m 1 for merge commits, --no-edit to avoid editor)
+    execFileSync('git', ['revert', '--no-edit', '-m', '1', 'HEAD'], {
+      cwd: workdir, encoding: 'utf8'
+    });
+
+    // Push the revert
+    execFileSync('git', ['push', 'origin', defaultBranch], {
+      cwd: workdir, encoding: 'utf8', timeout: 60000
+    });
+
+    // Restart server from the reverted state
+    const repoName = run.repo.split('/').pop();
+    const port = run.config?.port || (repoName === 'dashboard' ? 3333 : 3500);
+    try {
+      const pids = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf8' }).trim();
+      if (pids) {
+        for (const pid of pids.split('\n')) {
+          try { process.kill(parseInt(pid, 10), 'SIGKILL'); } catch {}
+        }
+      }
+    } catch { /* no process on port */ }
+
+    const { spawn } = require('child_process');
+    const serverProc = spawn('node', ['server.js'], {
+      cwd: workdir, stdio: 'ignore', detached: true,
+      env: { ...process.env, PORT: String(port) }
+    });
+    serverProc.unref();
+
+    await auditLog(run.id, 'deploy.rollback.success', 'system', {
+      revertedCommit: mergeCommit,
+      branch: defaultBranch
+    });
+
+    console.log(`[pipeline-engine] Rollback successful for run ${run.id}: reverted ${mergeCommit}`);
+    return { success: true, revertedCommit: mergeCommit };
+  } catch (rollbackErr) {
+    await auditLog(run.id, 'deploy.rollback.failed', 'system', {
+      error: rollbackErr.message
+    });
+
+    console.error(`[pipeline-engine] Rollback FAILED for run ${run.id}:`, rollbackErr.message);
+    return { success: false, error: rollbackErr.message };
+  }
+}
+
 // Execute all stages sequentially for a run
 async function executePipeline(run) {
   console.log(`[pipeline-engine] Starting run ${run.id} (task: ${run.task_id}, repo: ${run.repo})`);
@@ -70,6 +143,7 @@ async function executePipeline(run) {
 
   // Refresh run data between stages (branch, pr_number may be updated)
   let currentRun = { ...run };
+  let mergeCompleted = false;
 
   try {
     // When retrying from a specific stage, skip earlier stages that already passed
@@ -113,6 +187,9 @@ async function executePipeline(run) {
       if (refreshed.length > 0) currentRun = refreshed[0];
 
       await executeStageWithTracking(currentRun, stageName, stageRow);
+
+      // Track which stages have passed for rollback decisions
+      if (stageName === 'merge') mergeCompleted = true;
     }
 
     // All stages passed
@@ -123,14 +200,32 @@ async function executePipeline(run) {
 
     console.log(`[pipeline-engine] Run ${run.id} completed successfully`);
   } catch (err) {
+    // Refresh run to get current_stage
+    const { rows: failedRows } = await pool.query(
+      'SELECT current_stage FROM pipeline_runs WHERE id = $1', [run.id]
+    );
+    const failedStage = failedRows[0]?.current_stage;
+
+    // Rollback if deploy failed after merge was completed
+    let rollbackResult = null;
+    if (failedStage === 'deploy' && mergeCompleted) {
+      console.log(`[pipeline-engine] Deploy failed after merge — attempting rollback for run ${run.id}`);
+      rollbackResult = await rollbackDeploy(currentRun);
+    }
+
     // Mark run as failed
+    const resultPayload = { error: err.message };
+    if (rollbackResult) {
+      resultPayload.rollback = rollbackResult;
+    }
+
     await updateRun(run.id, {
       status: 'failed',
       completedAt: new Date().toISOString(),
-      result: JSON.stringify({ error: err.message })
+      result: JSON.stringify(resultPayload)
     });
 
-    console.error(`[pipeline-engine] Run ${run.id} failed at stage ${run.current_stage}:`, err.message);
+    console.error(`[pipeline-engine] Run ${run.id} failed at stage ${failedStage}:`, err.message);
   }
 }
 
