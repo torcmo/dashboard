@@ -1531,6 +1531,14 @@ app.get('/api/claude/log', (req, res) => {
   }
 });
 
+// --- Pipeline Runs (Postgres-backed) ---
+const pipelineRunsRouter = require('./routes/pipeline');
+app.use('/api/pipeline', pipelineRunsRouter);
+
 app.listen(PORT, () => {
   console.log(`Dashboard running at http://localhost:${PORT}`);
+
+  // Start pipeline engine queue processor
+  const engine = require('./services/pipeline-engine');
+  engine.start();
 });

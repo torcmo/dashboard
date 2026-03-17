@@ -277,6 +277,31 @@
   ],
   "deployed": [
     {
+      "id": "mmusbedg1oye",
+      "title": "MCC: Import real leads + seed outbound data + wire RAG + recalc scores",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "backend",
+        "data",
+        "rag"
+      ],
+      "branch": "feature/mmusbedg1oye",
+      "startedAt": "2026-03-17T21:19:40+05:30",
+      "assignee": "claude-code",
+      "prCreatedAt": "2026-03-17T21:25:49+05:30",
+      "pr": {
+        "number": 12,
+        "url": "https://github.com/torcmo/marketing-command-center/pull/12",
+        "status": "merged"
+      },
+      "qaStatus": "passed",
+      "mergedAt": "2026-03-17T21:26:47+05:30",
+      "deployedAt": "2026-03-17T21:26:57+05:30"
+    },
+    {
       "id": "mcc-brand",
       "title": "MCC: Tor.ai rebrand + UX polish",
       "created": "2026-03-17",
