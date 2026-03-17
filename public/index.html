@@ -278,6 +278,17 @@
             </div>
           </div>
         </div>
+        <!-- Repo Config Section -->
+        <div class="card" id="card-pipeline-settings">
+          <div class="card-header">
+            <h2>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Pipeline Settings — Repo Config
+            </h2>
+            <button class="pl-new-run-btn" id="pl-repo-add-btn">+ Add Repo</button>
+          </div>
+          <div class="card-body" id="pipeline-repo-config-panel">Loading&hellip;</div>
+        </div>
         <!-- New Run Modal -->
         <div class="pl-modal-overlay hidden" id="pl-modal-overlay">
           <div class="pl-modal">
@@ -289,9 +300,26 @@
               <label class="pl-modal-label">Task ID <span class="pl-optional">(optional)</span>
                 <input type="text" id="pl-modal-taskid" placeholder="e.g. pg-03">
               </label>
+              <label class="pl-modal-label">Provider
+                <select id="pl-modal-provider">
+                  <option value="github">GitHub</option>
+                  <option value="azure_devops">Azure DevOps</option>
+                </select>
+              </label>
               <label class="pl-modal-label">Repository
                 <select id="pl-modal-repo"><option value="">Select a repo...</option></select>
               </label>
+              <div id="pl-modal-azure-fields" class="pl-azure-fields hidden">
+                <label class="pl-modal-label">Organization URL
+                  <input type="text" id="pl-modal-azure-org" placeholder="https://dev.azure.com/torai">
+                </label>
+                <label class="pl-modal-label">Project Name
+                  <input type="text" id="pl-modal-azure-project" placeholder="e.g. TorPlatform">
+                </label>
+                <label class="pl-modal-label">Work Item ID <span class="pl-optional">(optional)</span>
+                  <input type="text" id="pl-modal-azure-workitem" placeholder="e.g. 1234">
+                </label>
+              </div>
               <label class="pl-modal-label pl-modal-wide">Prompt
                 <textarea id="pl-modal-prompt" rows="4" placeholder="Describe the coding task..."></textarea>
               </label>
@@ -307,6 +335,53 @@
             <div class="pl-modal-footer">
               <button class="pl-modal-cancel-btn" id="pl-modal-cancel">Cancel</button>
               <button class="pl-modal-submit-btn" id="pl-modal-submit">Create Run</button>
+            </div>
+          </div>
+        </div>
+        <!-- Repo Config Modal -->
+        <div class="pl-modal-overlay hidden" id="pl-repo-modal-overlay">
+          <div class="pl-modal">
+            <div class="pl-modal-header">
+              <h2 id="pl-repo-modal-title">Add Repo Config</h2>
+              <button class="pl-modal-close" id="pl-repo-modal-close">&times;</button>
+            </div>
+            <div class="pl-modal-body">
+              <label class="pl-modal-label">Provider
+                <select id="pl-repo-provider">
+                  <option value="github">GitHub</option>
+                  <option value="azure_devops">Azure DevOps</option>
+                </select>
+              </label>
+              <div id="pl-repo-github-fields">
+                <label class="pl-modal-label">Organization
+                  <input type="text" id="pl-repo-org" placeholder="e.g. torcmo">
+                </label>
+              </div>
+              <div id="pl-repo-azure-fields" class="hidden">
+                <label class="pl-modal-label">Organization URL
+                  <input type="text" id="pl-repo-azure-org" placeholder="https://dev.azure.com/torai">
+                </label>
+                <label class="pl-modal-label">Project
+                  <input type="text" id="pl-repo-azure-project" placeholder="e.g. TorPlatform">
+                </label>
+              </div>
+              <label class="pl-modal-label">Repository Name
+                <input type="text" id="pl-repo-name" placeholder="e.g. marketing-command-center">
+              </label>
+              <label class="pl-modal-label">Default Branch
+                <input type="text" id="pl-repo-branch" placeholder="e.g. main" value="master">
+              </label>
+              <label class="pl-modal-label">Merge Strategy
+                <select id="pl-repo-merge-strategy">
+                  <option value="squash">Squash</option>
+                  <option value="merge">Merge</option>
+                  <option value="rebase">Rebase</option>
+                </select>
+              </label>
+            </div>
+            <div class="pl-modal-footer">
+              <button class="pl-modal-cancel-btn" id="pl-repo-modal-cancel">Cancel</button>
+              <button class="pl-modal-submit-btn" id="pl-repo-modal-submit">Save</button>
             </div>
           </div>
         </div>

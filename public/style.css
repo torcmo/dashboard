@@ -849,6 +849,19 @@ a{color:var(--accent);text-decoration:none}
 .pl-modal-submit-btn:hover{opacity:.85}
 .pl-modal-submit-btn:disabled{opacity:.5;cursor:not-allowed}
 
+/* === Provider Badges === */
+.pl-provider-badge{font-size:.62rem;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.4px;
+  white-space:nowrap;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.pl-provider-github{background:rgba(255,255,255,.08);color:var(--text)}
+.pl-provider-azure_devops{background:rgba(0,120,212,.15);color:#4fa3e0}
+
+/* === Azure DevOps Fields === */
+.pl-azure-fields{display:flex;flex-direction:column;gap:14px;padding:12px;background:rgba(0,120,212,.04);
+  border:1px solid rgba(0,120,212,.15);border-radius:8px}
+
+/* === Repo Config Table === */
+.pl-repo-actions{display:flex;gap:6px;justify-content:flex-end}
+
 /* === Pipeline Stats Widget (Overview) === */
 .pl-stats-widget{display:flex;gap:16px;align-items:flex-start}
 .pl-stats-donut-wrap{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px}
