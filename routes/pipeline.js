@@ -58,6 +58,180 @@ function validate(schema) {
   };
 }
 
+// --- GET /api/pipeline/runs — List runs with optional filters ---
+
+router.get('/runs', async (req, res) => {
+  const { status, repo, limit = 50, offset = 0 } = req.query;
+  const conditions = [];
+  const params = [];
+  let i = 1;
+
+  if (status) { conditions.push(`r.status = $${i++}`); params.push(status); }
+  if (repo) { conditions.push(`r.repo ILIKE $${i++}`); params.push(`%${repo}%`); }
+
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+  params.push(parseInt(limit, 10), parseInt(offset, 10));
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT r.*,
+        EXTRACT(EPOCH FROM (COALESCE(r.completed_at, NOW()) - r.started_at)) AS duration_secs
+      FROM pipeline_runs r
+      ${where}
+      ORDER BY r.created_at DESC
+      LIMIT $${i++} OFFSET $${i++}
+    `, params);
+
+    const runs = rows.map(r => ({
+      id: r.id,
+      taskId: r.task_id,
+      repo: r.repo,
+      branch: r.branch,
+      prompt: r.prompt,
+      status: r.status,
+      currentStage: r.current_stage,
+      provider: r.provider,
+      prNumber: r.pr_number,
+      prUrl: r.pr_url,
+      config: r.config,
+      result: r.result,
+      costUsd: parseFloat(r.cost_usd) || 0,
+      triggeredBy: r.triggered_by,
+      durationSecs: r.duration_secs ? Math.round(parseFloat(r.duration_secs)) : null,
+      startedAt: r.started_at ? r.started_at.toISOString() : null,
+      completedAt: r.completed_at ? r.completed_at.toISOString() : null,
+      createdAt: r.created_at.toISOString()
+    }));
+
+    res.json(runs);
+  } catch (err) {
+    console.error('[pipeline-routes] List runs error:', err.message);
+    res.status(500).json({ error: 'Failed to list pipeline runs', details: err.message });
+  }
+});
+
+// --- GET /api/pipeline/runs/:id — Get run detail with stages and audit log ---
+
+router.get('/runs/:id', async (req, res) => {
+  try {
+    const { rows: runRows } = await pool.query(
+      `SELECT r.*,
+        EXTRACT(EPOCH FROM (COALESCE(r.completed_at, NOW()) - r.started_at)) AS duration_secs
+       FROM pipeline_runs r WHERE r.id = $1`,
+      [req.params.id]
+    );
+    if (runRows.length === 0) return res.status(404).json({ error: 'Run not found' });
+
+    const r = runRows[0];
+
+    const { rows: stages } = await pool.query(
+      'SELECT * FROM pipeline_stages WHERE run_id = $1 ORDER BY id',
+      [r.id]
+    );
+
+    // Audit log — may not exist yet, fail silently
+    let auditLog = [];
+    try {
+      const { rows: logs } = await pool.query(
+        'SELECT * FROM pipeline_audit_log WHERE run_id = $1 ORDER BY created_at',
+        [r.id]
+      );
+      auditLog = logs.map(l => ({
+        id: l.id,
+        action: l.action,
+        actor: l.actor,
+        details: l.details,
+        createdAt: l.created_at.toISOString()
+      }));
+    } catch { /* table may not exist */ }
+
+    res.json({
+      id: r.id,
+      taskId: r.task_id,
+      repo: r.repo,
+      branch: r.branch,
+      prompt: r.prompt,
+      status: r.status,
+      currentStage: r.current_stage,
+      provider: r.provider,
+      prNumber: r.pr_number,
+      prUrl: r.pr_url,
+      config: r.config,
+      result: r.result,
+      costUsd: parseFloat(r.cost_usd) || 0,
+      triggeredBy: r.triggered_by,
+      durationSecs: r.duration_secs ? Math.round(parseFloat(r.duration_secs)) : null,
+      startedAt: r.started_at ? r.started_at.toISOString() : null,
+      completedAt: r.completed_at ? r.completed_at.toISOString() : null,
+      createdAt: r.created_at.toISOString(),
+      stages: stages.map(s => ({
+        id: s.id,
+        stage: s.stage,
+        status: s.status,
+        output: s.output,
+        error: s.error,
+        durationMs: s.duration_ms,
+        costUsd: parseFloat(s.cost_usd) || 0,
+        retryCount: s.retry_count,
+        startedAt: s.started_at ? s.started_at.toISOString() : null,
+        completedAt: s.completed_at ? s.completed_at.toISOString() : null
+      })),
+      auditLog
+    });
+  } catch (err) {
+    console.error('[pipeline-routes] Get run error:', err.message);
+    res.status(500).json({ error: 'Failed to get pipeline run', details: err.message });
+  }
+});
+
+// --- POST /api/pipeline/runs/:id/cancel — Cancel a running pipeline ---
+
+router.post('/runs/:id/cancel', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "UPDATE pipeline_runs SET status = 'cancelled', completed_at = NOW() WHERE id = $1 AND status IN ('queued', 'running') RETURNING *",
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Run not found or not cancellable' });
+
+    // Mark any running stages as failed
+    await pool.query(
+      "UPDATE pipeline_stages SET status = 'failed', error = 'Cancelled by user', completed_at = NOW() WHERE run_id = $1 AND status = 'running'",
+      [req.params.id]
+    );
+
+    res.json({ message: 'Run cancelled', id: req.params.id });
+  } catch (err) {
+    console.error('[pipeline-routes] Cancel error:', err.message);
+    res.status(500).json({ error: 'Failed to cancel run', details: err.message });
+  }
+});
+
+// --- POST /api/pipeline/runs/:id/approve — Approve staging gate ---
+
+router.post('/runs/:id/approve', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM pipeline_runs WHERE id = $1',
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Run not found' });
+
+    const run = rows[0];
+    const config = { ...(run.config || {}), approved: true };
+
+    await pool.query(
+      'UPDATE pipeline_runs SET config = $1 WHERE id = $2',
+      [JSON.stringify(config), req.params.id]
+    );
+
+    res.json({ message: 'Staging approved', id: req.params.id });
+  } catch (err) {
+    console.error('[pipeline-routes] Approve error:', err.message);
+    res.status(500).json({ error: 'Failed to approve run', details: err.message });
+  }
+});
+
 // --- POST /api/pipeline/runs — Create and queue a new pipeline run ---
 
 router.post('/runs', validate(CreatePipelineRunBody), async (req, res) => {
