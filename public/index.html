@@ -207,12 +207,53 @@
     <!-- Route: Pipeline (full-width) -->
     <div class="page hidden" id="page-pipeline">
       <div class="page-single">
-        <div class="card" id="card-pipeline">
-          <div class="card-header">
-            <h2>Coding Pipeline</h2>
-            <span class="badge">Stages</span>
+        <!-- Run List View -->
+        <div id="pipeline-list-view">
+          <div class="card" id="card-pipeline-runs">
+            <div class="card-header">
+              <h2>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                Pipeline Runs
+              </h2>
+              <div class="pl-header-actions">
+                <select id="pl-filter-status" class="pl-filter-select"><option value="">All Status</option><option value="queued">Queued</option><option value="running">Running</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option></select>
+                <select id="pl-filter-repo" class="pl-filter-select"><option value="">All Repos</option></select>
+                <button class="pl-new-run-btn" id="pl-new-run-btn">+ New Run</button>
+              </div>
+            </div>
+            <div class="card-body" id="pipeline-runs-panel">Loading&hellip;</div>
           </div>
-          <div class="card-body" id="pipeline-panel">Loading&hellip;</div>
+        </div>
+        <!-- Run Detail View (hidden by default) -->
+        <div id="pipeline-detail-view" class="hidden">
+          <div class="pl-detail-back-row">
+            <button class="pl-back-btn" id="pl-back-btn">&larr; Back to Runs</button>
+          </div>
+          <div class="pl-detail-layout">
+            <div class="pl-detail-main">
+              <div class="card" id="card-pipeline-detail">
+                <div class="card-header">
+                  <h2 id="pl-detail-title">Run Detail</h2>
+                  <div id="pl-detail-actions"></div>
+                </div>
+                <div class="card-body" id="pipeline-detail-panel">Loading&hellip;</div>
+              </div>
+            </div>
+            <div class="pl-detail-sidebar">
+              <div class="card">
+                <div class="card-header"><h2>Run Info</h2></div>
+                <div class="card-body" id="pl-sidebar-info">Loading&hellip;</div>
+              </div>
+              <div class="card">
+                <div class="card-header"><h2>Cost Breakdown</h2></div>
+                <div class="card-body" id="pl-sidebar-cost">Loading&hellip;</div>
+              </div>
+              <div class="card">
+                <div class="card-header"><h2>Audit Log</h2></div>
+                <div class="card-body" id="pl-sidebar-audit">Loading&hellip;</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

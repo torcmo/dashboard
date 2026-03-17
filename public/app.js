@@ -956,125 +956,500 @@ function renderMarketingForm(tpl) {
 }
 
 // --- Pipeline ---
-let pipelineExpanded = {};
+// --- Pipeline Runs UI ---
+const PL_STAGES = ['build', 'pr', 'review', 'qa', 'staging', 'merge', 'deploy'];
+const PL_STAGE_LABELS = { build: 'Build', pr: 'PR', review: 'Review', qa: 'QA', staging: 'Staging', merge: 'Merge', deploy: 'Deploy' };
+const PL_STATUS_CLASS = { queued: 'pl-status-queued', running: 'pl-status-running', completed: 'pl-status-completed', failed: 'pl-status-failed', cancelled: 'pl-status-cancelled' };
+const PL_STAGE_STATUS_ICON = {
+  pending: '<span class="pl-stage-icon pl-si-pending">\u2014</span>',
+  running: '<span class="pl-stage-icon pl-si-running"></span>',
+  passed: '<span class="pl-stage-icon pl-si-passed">\u2713</span>',
+  failed: '<span class="pl-stage-icon pl-si-failed">\u2715</span>',
+  skipped: '<span class="pl-stage-icon pl-si-skipped">\u2014</span>'
+};
 
-async function loadPipeline() {
-  const pipelines = await fetch('/api/pipeline').then(r => r.json());
-  renderPipeline(pipelines);
+let plExpandedStage = null;
+let plNewRunVisible = false;
+
+function fmtDuration(secs) {
+  if (secs == null) return '--';
+  if (secs < 60) return secs + 's';
+  if (secs < 3600) return Math.floor(secs / 60) + 'm ' + (secs % 60) + 's';
+  return Math.floor(secs / 3600) + 'h ' + Math.floor((secs % 3600) / 60) + 'm';
 }
 
-function renderPipeline(pipelines) {
-  const panel = $('#pipeline-panel');
+function fmtDurationMs(ms) {
+  if (ms == null) return '--';
+  return fmtDuration(Math.round(ms / 1000));
+}
+
+function fmtCost(usd) {
+  if (usd == null || usd === 0) return '$0.00';
+  return '$' + parseFloat(usd).toFixed(4);
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  const el = document.createElement('span');
+  el.textContent = str;
+  return el.innerHTML;
+}
+
+async function loadPipeline() {
+  const statusFilter = ($('#pl-filter-status') || {}).value || '';
+  const repoFilter = ($('#pl-filter-repo') || {}).value || '';
+  const params = new URLSearchParams();
+  if (statusFilter) params.set('status', statusFilter);
+  if (repoFilter) params.set('repo', repoFilter);
+
+  try {
+    const runs = await fetch('/api/pipeline/runs?' + params).then(r => r.json());
+    renderPipelineRunList(runs);
+  } catch {
+    const panel = $('#pipeline-runs-panel');
+    if (panel) panel.textContent = 'Failed to load pipeline runs.';
+  }
+}
+
+function renderPipelineRunList(runs) {
+  const panel = $('#pipeline-runs-panel');
   if (!panel) return;
 
-  const STAGE_LABELS = { plan: 'Plan', code: 'Code', review: 'Review' };
-  const STATUS_COLORS = {
-    pending: 'pipe-pending', planning: 'pipe-running', coding: 'pipe-running',
-    reviewing: 'pipe-running', done: 'pipe-done', failed: 'pipe-failed'
-  };
-  const STAGE_COLORS = {
-    pending: 'pipe-stage-pending', running: 'pipe-stage-running',
-    done: 'pipe-stage-done', failed: 'pipe-stage-failed'
-  };
+  // Populate repo filter dropdown with unique repos
+  const repoSelect = $('#pl-filter-repo');
+  if (repoSelect && repoSelect.options.length <= 1) {
+    const repos = [...new Set(runs.map(r => r.repo).filter(Boolean))];
+    repos.forEach(repo => {
+      const opt = document.createElement('option');
+      opt.value = repo;
+      opt.textContent = repo;
+      repoSelect.appendChild(opt);
+    });
+  }
 
-  const cards = pipelines.length === 0
-    ? '<div class="pipe-empty">No pipelines yet. Create one above.</div>'
-    : pipelines.map(p => {
-        const expanded = pipelineExpanded[p.id];
-        const stageSteps = p.stages.map((s, i) => `
-          <div class="pipe-step">
-            <div class="pipe-step-dot ${STAGE_COLORS[s.status] || 'pipe-stage-pending'}"></div>
-            <div class="pipe-step-label">${STAGE_LABELS[s.name]}</div>
-          </div>
-          ${i < p.stages.length - 1 ? `<div class="pipe-step-line ${s.status === 'done' ? 'pipe-line-done' : ''}"></div>` : ''}
-        `).join('');
+  // Build the panel using DOM methods for safety, with innerHTML only for server-validated data
+  panel.textContent = '';
 
-        const stageOutputs = expanded ? `<div class="pipe-outputs">
-          ${p.stages.map(s => `
-            <div class="pipe-output-block">
-              <div class="pipe-output-header">${STAGE_LABELS[s.name]} <span class="pipe-output-status ${STAGE_COLORS[s.status]}">${s.status}</span></div>
-              ${s.startedAt ? `<div class="pipe-output-time">Started: ${new Date(s.startedAt).toLocaleString()}</div>` : ''}
-              ${s.completedAt ? `<div class="pipe-output-time">Completed: ${new Date(s.completedAt).toLocaleString()}</div>` : ''}
-              ${s.output ? `<pre class="pipe-output-text">${s.output.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>` : '<div class="pipe-output-none">No output yet</div>'}
-            </div>
-          `).join('')}
-        </div>` : '';
+  // New Run form
+  if (plNewRunVisible) {
+    const formDiv = document.createElement('div');
+    formDiv.className = 'pl-new-run-form';
+    formDiv.innerHTML = [
+      '<div class="pl-form-fields">',
+      '  <label class="pl-form-label">Task ID (optional)<input type="text" id="pl-run-taskid" placeholder="e.g. pg-03"></label>',
+      '  <label class="pl-form-label">Repo<input type="text" id="pl-run-repo" placeholder="e.g. torcmo/marketing-command-center"></label>',
+      '  <label class="pl-form-label pl-form-wide">Prompt<textarea id="pl-run-prompt" rows="3" placeholder="Describe the coding task..."></textarea></label>',
+      '  <label class="pl-form-label">Provider<select id="pl-run-provider"><option value="github">GitHub</option><option value="azure_devops">Azure DevOps</option></select></label>',
+      '  <label class="pl-form-label">Triggered By<input type="text" id="pl-run-trigger" placeholder="e.g. nihal@tor.ai"></label>',
+      '</div>',
+      '<div class="pl-form-options">',
+      '  <label class="pl-check"><input type="checkbox" id="pl-run-automerge" checked> Auto-merge</label>',
+      '  <label class="pl-check"><input type="checkbox" id="pl-run-skipreview"> Skip review</label>',
+      '  <label class="pl-check"><input type="checkbox" id="pl-run-skipqa"> Skip QA</label>',
+      '</div>',
+      '<button class="pl-submit-btn" id="pl-submit-run">Create Run</button>'
+    ].join('\n');
+    panel.appendChild(formDiv);
+  }
 
-        return `
-          <div class="pipe-card" data-id="${p.id}">
-            <div class="pipe-card-header">
-              <div class="pipe-card-info" data-id="${p.id}">
-                <span class="pipe-chevron">${expanded ? '&#9662;' : '&#9656;'}</span>
-                <span class="pipe-card-title">${p.title}</span>
-                <span class="pipe-status-badge ${STATUS_COLORS[p.status] || 'pipe-pending'}">${p.status}</span>
-              </div>
-              <button class="pipe-delete-btn" data-id="${p.id}" title="Delete">&times;</button>
-            </div>
-            ${p.description ? `<div class="pipe-card-desc">${p.description}</div>` : ''}
-            ${p.repo ? `<div class="pipe-card-repo">${p.repo}</div>` : ''}
-            <div class="pipe-card-date">${new Date(p.createdAt).toLocaleString()}</div>
-            <div class="pipe-stepper">${stageSteps}</div>
-            ${stageOutputs}
-          </div>`;
-      }).join('');
+  // Runs table
+  const wrap = document.createElement('div');
+  wrap.className = 'pl-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'pl-table';
+  table.innerHTML = '<thead><tr><th>Task</th><th>Repo</th><th>Status</th><th>Stage</th><th>Duration</th><th>Cost</th><th>Triggered By</th><th>Created</th></tr></thead>';
+  const tbody = document.createElement('tbody');
 
-  panel.innerHTML = `
-    <div class="pipe-section">
-      <h3 class="pipe-section-title">New Pipeline</h3>
-      <div class="pipe-form">
-        <div class="pipe-form-fields">
-          <label class="pipe-form-label">Task Title<input type="text" id="pipe-title" placeholder="e.g. Add user authentication"></label>
-          <label class="pipe-form-label">Repo Path (optional)<input type="text" id="pipe-repo" placeholder="/path/to/repo"></label>
-          <label class="pipe-form-label pipe-form-wide">Description<textarea id="pipe-desc" rows="3" placeholder="Describe the coding task..."></textarea></label>
-        </div>
-        <button class="pipe-create-btn" id="pipe-create-btn">Create Pipeline</button>
-      </div>
-    </div>
-    <div class="pipe-section">
-      <h3 class="pipe-section-title">Active Pipelines</h3>
-      ${cards}
-    </div>
-  `;
+  if (runs.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 8;
+    td.className = 'pl-empty';
+    td.textContent = 'No pipeline runs found.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  } else {
+    runs.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.className = 'pl-run-row';
+      tr.dataset.id = r.id;
 
-  // Bind create
-  $('#pipe-create-btn').addEventListener('click', async () => {
-    const title = ($('#pipe-title') || {}).value?.trim();
-    const description = ($('#pipe-desc') || {}).value?.trim();
-    const repo = ($('#pipe-repo') || {}).value?.trim();
-    if (!title || !description) { showToast('Title and description are required'); return; }
-    const btn = $('#pipe-create-btn');
-    btn.disabled = true;
-    btn.textContent = 'Creating...';
-    try {
-      const resp = await fetch('/api/pipeline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, repo: repo || undefined })
+      const tdTask = document.createElement('td');
+      tdTask.className = 'pl-cell-taskid';
+      tdTask.textContent = r.taskId || '--';
+
+      const tdRepo = document.createElement('td');
+      tdRepo.className = 'pl-cell-repo';
+      tdRepo.textContent = r.repo;
+
+      const tdStatus = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = 'pl-status-badge ' + (PL_STATUS_CLASS[r.status] || '');
+      badge.textContent = r.status;
+      tdStatus.appendChild(badge);
+
+      const tdStage = document.createElement('td');
+      tdStage.textContent = r.currentStage ? (PL_STAGE_LABELS[r.currentStage] || r.currentStage) : '--';
+
+      const tdDur = document.createElement('td');
+      tdDur.textContent = fmtDuration(r.durationSecs);
+
+      const tdCost = document.createElement('td');
+      tdCost.textContent = fmtCost(r.costUsd);
+
+      const tdBy = document.createElement('td');
+      tdBy.textContent = r.triggeredBy || '--';
+
+      const tdDate = document.createElement('td');
+      tdDate.className = 'pl-cell-date';
+      tdDate.textContent = new Date(r.createdAt).toLocaleString();
+
+      tr.append(tdTask, tdRepo, tdStatus, tdStage, tdDur, tdCost, tdBy, tdDate);
+      tr.addEventListener('click', () => showPipelineDetail(r.id));
+      tbody.appendChild(tr);
+    });
+  }
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  panel.appendChild(wrap);
+
+  // Bind new run form submit
+  const submitBtn = $('#pl-submit-run');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      const repo = ($('#pl-run-repo') || {}).value?.trim();
+      const prompt = ($('#pl-run-prompt') || {}).value?.trim();
+      if (!repo || !prompt) { showToast('Repo and prompt are required'); return; }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating...';
+      try {
+        const body = {
+          repo, prompt,
+          taskId: ($('#pl-run-taskid') || {}).value?.trim() || undefined,
+          provider: ($('#pl-run-provider') || {}).value || 'github',
+          triggeredBy: ($('#pl-run-trigger') || {}).value?.trim() || undefined,
+          config: {
+            autoMerge: $('#pl-run-automerge')?.checked !== false,
+            skipReview: $('#pl-run-skipreview')?.checked || false,
+            skipQA: $('#pl-run-skipqa')?.checked || false
+          }
+        };
+        const resp = await fetch('/api/pipeline/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!resp.ok) { const err = await resp.json(); showToast('Error: ' + (err.error || 'Failed')); return; }
+        showToast('Pipeline run created');
+        plNewRunVisible = false;
+        await loadPipeline();
+      } catch { showToast('Error creating run'); }
+    });
+  }
+
+  // Bind filter changes
+  const statusSel = $('#pl-filter-status');
+  const repoSel = $('#pl-filter-repo');
+  if (statusSel) statusSel.onchange = () => loadPipeline();
+  if (repoSel) repoSel.onchange = () => loadPipeline();
+
+  // Bind new run button
+  const newBtn = $('#pl-new-run-btn');
+  if (newBtn) newBtn.onclick = () => { plNewRunVisible = !plNewRunVisible; loadPipeline(); };
+}
+
+async function showPipelineDetail(runId) {
+  $('#pipeline-list-view').classList.add('hidden');
+  $('#pipeline-detail-view').classList.remove('hidden');
+  plExpandedStage = null;
+
+  try {
+    const run = await fetch('/api/pipeline/runs/' + encodeURIComponent(runId)).then(r => r.json());
+    renderPipelineDetail(run);
+  } catch {
+    const p = $('#pipeline-detail-panel');
+    if (p) p.textContent = 'Failed to load run details.';
+  }
+}
+
+function renderPipelineDetail(run) {
+  // Title — uses textContent for dynamic values
+  const titleEl = $('#pl-detail-title');
+  if (titleEl) {
+    titleEl.textContent = '';
+    const icon = document.createElement('span');
+    icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>';
+    titleEl.appendChild(icon);
+    titleEl.appendChild(document.createTextNode(' ' + (run.taskId || run.id.slice(0, 8)) + ' \u2014 ' + run.repo + ' '));
+    const badge = document.createElement('span');
+    badge.className = 'pl-status-badge ' + (PL_STATUS_CLASS[run.status] || '');
+    badge.textContent = run.status;
+    titleEl.appendChild(badge);
+  }
+
+  // Action buttons
+  const actionsEl = $('#pl-detail-actions');
+  if (actionsEl) {
+    actionsEl.textContent = '';
+    if (run.status === 'running' || run.status === 'queued') {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'pl-action-btn pl-action-cancel';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.onclick = async () => {
+        await fetch('/api/pipeline/runs/' + encodeURIComponent(run.id) + '/cancel', { method: 'POST' });
+        showToast('Run cancelled');
+        showPipelineDetail(run.id);
+      };
+      actionsEl.appendChild(cancelBtn);
+    }
+    if (run.status === 'failed') {
+      const failedStage = (run.stages || []).find(s => s.status === 'failed');
+      if (failedStage) {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'pl-action-btn pl-action-retry';
+        retryBtn.textContent = 'Retry from ' + PL_STAGE_LABELS[failedStage.stage];
+        retryBtn.onclick = async () => {
+          await fetch('/api/pipeline/runs/' + encodeURIComponent(run.id) + '/retry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fromStage: failedStage.stage })
+          });
+          showToast('Retrying from ' + PL_STAGE_LABELS[failedStage.stage]);
+          showPipelineDetail(run.id);
+        };
+        actionsEl.appendChild(retryBtn);
+      }
+    }
+    if (run.currentStage === 'staging' && run.status === 'running') {
+      const approveBtn = document.createElement('button');
+      approveBtn.className = 'pl-action-btn pl-action-approve';
+      approveBtn.textContent = 'Approve';
+      approveBtn.onclick = async () => {
+        await fetch('/api/pipeline/runs/' + encodeURIComponent(run.id) + '/approve', { method: 'POST' });
+        showToast('Staging approved');
+        showPipelineDetail(run.id);
+      };
+      actionsEl.appendChild(approveBtn);
+    }
+  }
+
+  // Stage stepper
+  const stages = run.stages || [];
+  const panel = $('#pipeline-detail-panel');
+  if (!panel) return;
+  panel.textContent = '';
+
+  const stepperDiv = document.createElement('div');
+  stepperDiv.className = 'pl-stepper';
+  stages.forEach((s, i) => {
+    const step = document.createElement('div');
+    step.className = 'pl-stepper-step' + (plExpandedStage === s.stage ? ' pl-step-active' : '');
+    step.dataset.stage = s.stage;
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'pl-step-icon-wrap pl-step-' + s.status;
+    iconWrap.innerHTML = PL_STAGE_STATUS_ICON[s.status] || PL_STAGE_STATUS_ICON.pending;
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'pl-step-name';
+    nameDiv.textContent = PL_STAGE_LABELS[s.stage];
+
+    step.append(iconWrap, nameDiv);
+    if (s.durationMs != null) {
+      const durDiv = document.createElement('div');
+      durDiv.className = 'pl-step-dur';
+      durDiv.textContent = fmtDurationMs(s.durationMs);
+      step.appendChild(durDiv);
+    }
+
+    step.addEventListener('click', () => {
+      plExpandedStage = plExpandedStage === s.stage ? null : s.stage;
+      renderPipelineDetail(run);
+    });
+
+    stepperDiv.appendChild(step);
+
+    if (i < stages.length - 1) {
+      const line = document.createElement('div');
+      line.className = 'pl-stepper-line' + (s.status === 'passed' ? ' pl-line-passed' : '');
+      stepperDiv.appendChild(line);
+    }
+  });
+  panel.appendChild(stepperDiv);
+
+  // Expanded stage output
+  if (plExpandedStage) {
+    const s = stages.find(st => st.stage === plExpandedStage);
+    if (s) {
+      const detail = document.createElement('div');
+      detail.className = 'pl-stage-detail';
+
+      const header = document.createElement('div');
+      header.className = 'pl-stage-detail-header';
+      const strong = document.createElement('strong');
+      strong.textContent = PL_STAGE_LABELS[s.stage];
+      header.appendChild(strong);
+      const sBadge = document.createElement('span');
+      sBadge.className = 'pl-status-badge ' + (s.status === 'passed' ? 'pl-status-completed' : s.status === 'failed' ? 'pl-status-failed' : s.status === 'running' ? 'pl-status-running' : 'pl-status-queued');
+      sBadge.textContent = s.status;
+      header.appendChild(sBadge);
+      if (s.costUsd) {
+        const costSpan = document.createElement('span');
+        costSpan.className = 'pl-stage-cost';
+        costSpan.textContent = fmtCost(s.costUsd);
+        header.appendChild(costSpan);
+      }
+      if (s.durationMs != null) {
+        const durSpan = document.createElement('span');
+        durSpan.className = 'pl-stage-dur-tag';
+        durSpan.textContent = fmtDurationMs(s.durationMs);
+        header.appendChild(durSpan);
+      }
+      detail.appendChild(header);
+
+      if (s.error) {
+        const errPre = document.createElement('pre');
+        errPre.className = 'pl-stage-output pl-stage-error';
+        errPre.textContent = s.error;
+        detail.appendChild(errPre);
+      }
+      if (s.output) {
+        const outPre = document.createElement('pre');
+        outPre.className = 'pl-stage-output';
+        outPre.textContent = s.output;
+        detail.appendChild(outPre);
+      }
+      if (!s.output && !s.error) {
+        const none = document.createElement('div');
+        none.className = 'pl-stage-none';
+        none.textContent = 'No output yet';
+        detail.appendChild(none);
+      }
+
+      panel.appendChild(detail);
+    }
+  }
+
+  // Right sidebar — Run Info
+  const infoPanel = $('#pl-sidebar-info');
+  if (infoPanel) {
+    const infoRows = [
+      ['ID', run.id.slice(0, 8) + '\u2026'],
+      ['Task', run.taskId || '--'],
+      ['Repo', run.repo],
+      ['Branch', run.branch || '--'],
+      ['Provider', run.provider || '--'],
+      ['Triggered By', run.triggeredBy || '--'],
+      ['Created', new Date(run.createdAt).toLocaleString()],
+      run.startedAt ? ['Started', new Date(run.startedAt).toLocaleString()] : null,
+      run.completedAt ? ['Completed', new Date(run.completedAt).toLocaleString()] : null,
+      ['Duration', fmtDuration(run.durationSecs)],
+      ['Total Cost', fmtCost(run.costUsd)]
+    ].filter(Boolean);
+
+    const listDiv = document.createElement('div');
+    listDiv.className = 'pl-info-list';
+    infoRows.forEach(([label, val]) => {
+      const row = document.createElement('div');
+      row.className = 'pl-info-row';
+      const lbl = document.createElement('span');
+      lbl.className = 'pl-info-label';
+      lbl.textContent = label;
+      const v = document.createElement('span');
+      v.className = 'pl-info-val';
+      v.textContent = val;
+      row.append(lbl, v);
+      listDiv.appendChild(row);
+    });
+
+    if (run.prUrl) {
+      const prRow = document.createElement('div');
+      prRow.className = 'pl-info-row';
+      const prLbl = document.createElement('span');
+      prLbl.className = 'pl-info-label';
+      prLbl.textContent = 'PR';
+      const prVal = document.createElement('span');
+      prVal.className = 'pl-info-val';
+      const prLink = document.createElement('a');
+      prLink.href = run.prUrl;
+      prLink.target = '_blank';
+      prLink.textContent = '#' + run.prNumber;
+      prVal.appendChild(prLink);
+      prRow.append(prLbl, prVal);
+      listDiv.appendChild(prRow);
+    }
+
+    infoPanel.textContent = '';
+    infoPanel.appendChild(listDiv);
+
+    if (run.prompt) {
+      const promptDiv = document.createElement('div');
+      promptDiv.className = 'pl-info-prompt';
+      const promptTitle = document.createElement('strong');
+      promptTitle.textContent = 'Prompt';
+      const promptPre = document.createElement('pre');
+      promptPre.className = 'pl-prompt-text';
+      promptPre.textContent = run.prompt;
+      promptDiv.append(promptTitle, promptPre);
+      infoPanel.appendChild(promptDiv);
+    }
+  }
+
+  // Right sidebar — Cost Breakdown
+  const costPanel = $('#pl-sidebar-cost');
+  if (costPanel) {
+    costPanel.textContent = '';
+    const costStages = stages.filter(s => s.costUsd > 0);
+    if (costStages.length === 0) {
+      costPanel.textContent = 'No costs recorded';
+    } else {
+      costStages.forEach(s => {
+        const row = document.createElement('div');
+        row.className = 'pl-cost-row';
+        const name = document.createElement('span');
+        name.textContent = PL_STAGE_LABELS[s.stage];
+        const cost = document.createElement('span');
+        cost.textContent = fmtCost(s.costUsd);
+        row.append(name, cost);
+        costPanel.appendChild(row);
       });
-      if (!resp.ok) { const err = await resp.json(); showToast('Error: ' + (err.error || 'Failed')); return; }
-      showToast(`Pipeline created: ${title}`);
-      await loadPipeline();
-    } catch { showToast('Error creating pipeline'); }
-  });
+    }
+  }
 
-  // Bind expand/collapse
-  $$('.pipe-card-info', panel).forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.id;
-      pipelineExpanded[id] = !pipelineExpanded[id];
-      loadPipeline();
-    });
-  });
+  // Right sidebar — Audit Log
+  const auditPanel = $('#pl-sidebar-audit');
+  if (auditPanel) {
+    auditPanel.textContent = '';
+    const logs = run.auditLog || [];
+    if (logs.length === 0) {
+      auditPanel.textContent = 'No audit entries';
+    } else {
+      logs.forEach(l => {
+        const entry = document.createElement('div');
+        entry.className = 'pl-audit-entry';
+        const action = document.createElement('span');
+        action.className = 'pl-audit-action';
+        action.textContent = l.action;
+        const actor = document.createElement('span');
+        actor.className = 'pl-audit-actor';
+        actor.textContent = l.actor || '--';
+        const time = document.createElement('span');
+        time.className = 'pl-audit-time';
+        time.textContent = new Date(l.createdAt).toLocaleString();
+        entry.append(action, actor, time);
+        auditPanel.appendChild(entry);
+      });
+    }
+  }
 
-  // Bind delete
-  $$('.pipe-delete-btn', panel).forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await fetch(`/api/pipeline/${btn.dataset.id}`, { method: 'DELETE' });
-      showToast('Pipeline deleted');
-      await loadPipeline();
-    });
-  });
+  // Back button
+  const backBtn = $('#pl-back-btn');
+  if (backBtn) backBtn.onclick = () => {
+    $('#pipeline-detail-view').classList.add('hidden');
+    $('#pipeline-list-view').classList.remove('hidden');
+    loadPipeline();
+  };
 }
 
 // --- Marketing Team ---
