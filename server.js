@@ -1222,6 +1222,10 @@ function derivePipelineStatus(stages) {
   return 'pending';
 }
 
+// --- Pipeline Runs (Postgres-backed) — mounted BEFORE the file-based /api/pipeline/:id route ---
+const { router: pipelineRunsRouter } = require('./routes/pipeline');
+app.use('/api/pipeline', pipelineRunsRouter);
+
 app.post('/api/pipeline', validate(CreatePipelineBody), (req, res) => {
   const { title, description, repo } = req.body;
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -1536,9 +1540,7 @@ app.get('/api/claude/log', (req, res) => {
   }
 });
 
-// --- Pipeline Runs (Postgres-backed) ---
-const { router: pipelineRunsRouter } = require('./routes/pipeline');
-app.use('/api/pipeline', pipelineRunsRouter);
+// NOTE: Pipeline Runs router already mounted above (before file-based /api/pipeline/:id)
 
 app.listen(PORT, () => {
   console.log(`Dashboard running at http://localhost:${PORT}`);

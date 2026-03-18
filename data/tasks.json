@@ -1,144 +1,6 @@
 {
-  "backlog": [
-    {
-      "id": "ob-02",
-      "title": "Outbound: Accounts page — list, detail, contacts, enrichment",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-02-accounts-page",
-      "priority": "high",
-      "labels": [
-        "outbound",
-        "frontend"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-03",
-      "title": "Outbound: Signals page — feed, create, process, dismiss",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-03-signals-page",
-      "priority": "high",
-      "labels": [
-        "outbound",
-        "frontend"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-04",
-      "title": "Outbound: Sequences page — template library, editor, active instances",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-04-sequences-page",
-      "priority": "high",
-      "labels": [
-        "outbound",
-        "frontend"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-05",
-      "title": "Outbound: Outbox page — review queue, approve/edit/reject, sent history",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-05-outbox-page",
-      "priority": "medium",
-      "labels": [
-        "outbound",
-        "frontend"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-06",
-      "title": "Outbound: Attribution page — funnel, breakdowns, timeline",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-06-attribution-page",
-      "priority": "medium",
-      "labels": [
-        "outbound",
-        "frontend",
-        "analytics"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-07",
-      "title": "Outbound: Prospector agent — enrichment + signal scanning",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-07-prospector-agent",
-      "priority": "medium",
-      "labels": [
-        "outbound",
-        "backend",
-        "ai-agent"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-08",
-      "title": "Outbound: SDR agent — message composition + personalization",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-08-sdr-agent",
-      "priority": "medium",
-      "labels": [
-        "outbound",
-        "backend",
-        "ai-agent"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-09",
-      "title": "Outbound: Scoring engine + cross-page linking",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-09-scoring-engine",
-      "priority": "low",
-      "labels": [
-        "outbound",
-        "backend"
-      ],
-      "assignee": "claude-code"
-    },
-    {
-      "id": "ob-10",
-      "title": "Outbound: Nav update, polish, keyboard shortcuts",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-10-nav-polish",
-      "priority": "low",
-      "labels": [
-        "outbound",
-        "frontend",
-        "ux"
-      ],
-      "assignee": "claude-code"
-    }
-  ],
-  "building": [
-    {
-      "id": "ob-01",
-      "title": "Outbound: Data layer + seed (accounts, signals, sequences, outbox, attribution)",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/ob-01-data-layer",
-      "priority": "high",
-      "labels": [
-        "outbound",
-        "backend"
-      ],
-      "assignee": "claude-code",
-      "buildSessionId": "wild-ember",
-      "startedAt": "2026-03-17T10:00:00Z"
-    }
-  ],
+  "backlog": [],
+  "building": [],
   "pr_open": [],
   "code_review": [],
   "qa": [],
@@ -277,6 +139,55 @@
   ],
   "deployed": [
     {
+      "id": "mmvkhgaot5ff",
+      "title": "MCC: Full test suite (unit + API + E2E)",
+      "created": "2026-03-18",
+      "repo": "torcmo/marketing-command-center",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "testing",
+        "qa"
+      ],
+      "branch": "feature/mmvkhgaot5ff",
+      "startedAt": "2026-03-18T10:24:54+05:30",
+      "assignee": "claude-code",
+      "prCreatedAt": "2026-03-18T10:50:39+05:30",
+      "pr": {
+        "number": 15,
+        "url": "https://github.com/torcmo/marketing-command-center/pull/15",
+        "status": "merged"
+      },
+      "qaStatus": "passed",
+      "mergedAt": "2026-03-18T10:51:43+05:30",
+      "deployedAt": "2026-03-18T10:51:52+05:30"
+    },
+    {
+      "id": "mmviu170tvhr",
+      "title": "MCC: Agent runner + integrations + UI fixes (3 remaining gaps)",
+      "created": "2026-03-18",
+      "repo": "torcmo/marketing-command-center",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "backend",
+        "frontend",
+        "agents"
+      ],
+      "branch": "feature/mmviu170tvhr",
+      "startedAt": "2026-03-18T09:38:42+05:30",
+      "assignee": "claude-code",
+      "prCreatedAt": "2026-03-18T09:47:06+05:30",
+      "pr": {
+        "number": 14,
+        "url": "https://github.com/torcmo/marketing-command-center/pull/14",
+        "status": "merged"
+      },
+      "qaStatus": "passed",
+      "mergedAt": "2026-03-18T09:48:14+05:30",
+      "deployedAt": "2026-03-18T09:48:24+05:30"
+    },
+    {
       "id": "mmusbedg1oye",
       "title": "MCC: Import real leads + seed outbound data + wire RAG + recalc scores",
       "created": "2026-03-17",
@@ -343,6 +254,22 @@
       ],
       "assignee": "human",
       "deployedAt": "2026-03-17T09:00:00Z"
+    },
+    {
+      "id": "ob-01",
+      "title": "Outbound: Data layer + seed (accounts, signals, sequences, outbox, attribution)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/ob-01-data-layer",
+      "priority": "high",
+      "labels": [
+        "outbound",
+        "backend"
+      ],
+      "assignee": "claude-code",
+      "buildSessionId": "wild-ember",
+      "startedAt": "2026-03-17T10:00:00Z",
+      "deployedAt": "2026-03-18T06:18:37.306Z"
     }
   ]
 }

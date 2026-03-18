@@ -680,6 +680,107 @@ function setupKanbanEvents(ctx) {
   setupCardActions(ctx);
   setupQAButtons(ctx);
   setupPipelineScroll(ctx);
+  setupCardClick(ctx);
+}
+
+function setupCardClick(ctx) {
+  $$('.kanban-card', ctx).forEach(card => {
+    card.addEventListener('click', function(e) {
+      // Don't trigger on button/link clicks
+      if (e.target.closest('button, a, .delete-btn, .card-action-btn')) return;
+      const id = card.dataset.id;
+      const col = card.dataset.col;
+      // Find the task data
+      const task = (tasksData[col] || []).find(t => t.id === id);
+      if (!task) return;
+      showTaskDetailModal(task, col);
+    });
+    card.style.cursor = 'pointer';
+  });
+}
+
+function showTaskDetailModal(task, col) {
+  const overlay = document.createElement('div');
+  overlay.className = 'task-modal-overlay';
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  const isBuilding = col === 'building';
+  const prHtml = task.pr && task.pr.number
+    ? '<a href="' + escAttr(task.pr.url) + '" target="_blank" class="card-pr-badge pr-' + (task.pr.status || 'open') + '">PR #' + task.pr.number + ' ↗</a>'
+    : '<span style="color:var(--text-muted)">No PR</span>';
+
+  const labelsHtml = (task.labels || []).map(function(l) {
+    return '<span class="card-label">' + escHtml(l) + '</span>';
+  }).join(' ') || '<span style="color:var(--text-muted)">None</span>';
+
+  const metaRows = [
+    ['Status', '<span style="color:' + (COL_COLORS[col] || '#888') + ';font-weight:700">' + escHtml(COL_LABELS[col] || col) + '</span>'],
+    ['Priority', task.priority ? '<span class="card-priority">' + (PRIORITY_BADGE[task.priority] || '') + ' ' + escHtml(task.priority) + '</span>' : 'None'],
+    ['Assignee', task.assignee === 'claude-code' ? '🤖 Claude Code' : task.assignee === 'human' ? '👤 Human' : escHtml(task.assignee || 'Unassigned')],
+    ['Repository', task.repo ? escHtml(task.repo) : 'None'],
+    ['Branch', task.branch ? '<code>' + escHtml(task.branch) + '</code>' : 'None'],
+    ['PR', prHtml],
+    ['Labels', labelsHtml],
+    ['Created', task.created || 'Unknown']
+  ];
+
+  if (task.startedAt) metaRows.push(['Started', new Date(task.startedAt).toLocaleString()]);
+  if (task.mergedAt) metaRows.push(['Merged', new Date(task.mergedAt).toLocaleString()]);
+  if (task.deployedAt) metaRows.push(['Deployed', new Date(task.deployedAt).toLocaleString()]);
+
+  const metaTable = metaRows.map(function(r) {
+    return '<tr><td style="color:var(--text-muted);padding:6px 16px 6px 0;white-space:nowrap">' + r[0] + '</td><td style="padding:6px 0">' + r[1] + '</td></tr>';
+  }).join('');
+
+  let buildingTerminal = '';
+  if (isBuilding && task.buildSessionId) {
+    buildingTerminal = '<div style="margin-top:16px"><div style="font-weight:700;margin-bottom:8px;color:var(--accent)">🔧 Build Log</div>' +
+      '<pre id="task-build-log" style="background:#0a0a0a;border:1px solid var(--border);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;font-size:12px;color:#3fb950;font-family:monospace;white-space:pre-wrap">Loading build logs...</pre></div>';
+  } else if (isBuilding) {
+    buildingTerminal = '<div style="margin-top:16px;padding:12px;background:rgba(246,73,13,0.1);border:1px solid var(--accent);border-radius:8px;color:var(--accent)">' +
+      '🔧 Build in progress — Claude Code is working on this task</div>';
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'task-modal';
+  modal.innerHTML = '<div class="task-modal-header">' +
+    '<h2 style="margin:0;font-size:18px">' + escHtml(task.title) + '</h2>' +
+    '<button class="task-modal-close" onclick="this.closest(\'.task-modal-overlay\').remove()">&times;</button>' +
+    '</div>' +
+    '<div class="task-modal-body">' +
+    '<table style="width:100%;border-collapse:collapse">' + metaTable + '</table>' +
+    buildingTerminal +
+    '</div>' +
+    '<div class="task-modal-footer">' +
+    '<button class="btn btn-small" onclick="this.closest(\'.task-modal-overlay\').remove()">Close</button>' +
+    '</div>';
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // If building with session ID, try to load logs
+  if (isBuilding && task.buildSessionId) {
+    loadBuildLogs(task.buildSessionId);
+  }
+}
+
+async function loadBuildLogs(sessionId) {
+  const logEl = document.getElementById('task-build-log');
+  if (!logEl) return;
+  try {
+    const r = await fetch('/api/claude/log');
+    if (r.ok) {
+      const text = await r.text();
+      logEl.textContent = text || '(no output yet)';
+      logEl.scrollTop = logEl.scrollHeight;
+    } else {
+      logEl.textContent = '(build logs unavailable)';
+    }
+  } catch {
+    logEl.textContent = '(could not connect to build log)';
+  }
 }
 
 function setupDragDrop(ctx = document) {
