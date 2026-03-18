@@ -226,7 +226,8 @@ const TaskSchema = Type.Object({
   qaStatus: Type.Optional(Type.Union([Type.Literal('pending'), Type.Literal('passed'), Type.Literal('failed')])),
   qaChecks: Type.Optional(Type.Array(QaCheckSchema)),
   reviewNotes: Type.Optional(Type.String()),
-  labels: Type.Optional(Type.Array(Type.String()))
+  labels: Type.Optional(Type.Array(Type.String())),
+  archivedAt: Type.Optional(Type.Union([Type.String(), Type.Null()]))
 });
 
 const ColumnName = Type.Union([
@@ -854,7 +855,15 @@ function writeTasks(data) {
 }
 
 app.get('/api/tasks', (req, res) => {
-  res.json(readTasks());
+  const tasks = readTasks();
+  const showArchived = req.query.archived === 'true';
+  const filtered = {};
+  for (const col of PIPELINE_COLUMNS) {
+    filtered[col] = (tasks[col] || []).filter(t =>
+      showArchived ? !!t.archivedAt : !t.archivedAt
+    );
+  }
+  res.json(filtered);
 });
 
 app.get('/api/tasks/:id', (req, res) => {
@@ -955,6 +964,53 @@ app.post('/api/tasks/:id/qa', (req, res) => {
     }
   }
   res.status(404).json({ error: 'Task not found' });
+});
+
+// --- Archive endpoints ---
+app.put('/api/tasks/:id/archive', (req, res) => {
+  const { id } = req.params;
+  const tasks = readTasks();
+  for (const col of PIPELINE_COLUMNS) {
+    const task = tasks[col].find(t => t.id === id);
+    if (task) {
+      task.archivedAt = new Date().toISOString();
+      writeTasks(tasks);
+      return res.json(task);
+    }
+  }
+  res.status(404).json({ error: 'Task not found' });
+});
+
+app.put('/api/tasks/:id/unarchive', (req, res) => {
+  const { id } = req.params;
+  const tasks = readTasks();
+  for (const col of PIPELINE_COLUMNS) {
+    const task = tasks[col].find(t => t.id === id);
+    if (task) {
+      delete task.archivedAt;
+      writeTasks(tasks);
+      return res.json(task);
+    }
+  }
+  res.status(404).json({ error: 'Task not found' });
+});
+
+app.post('/api/tasks/archive-deployed', (req, res) => {
+  const parsed = parseInt(req.query.days, 10);
+  const days = Number.isFinite(parsed) ? parsed : 7;
+  const cutoff = Date.now() - days * 86400000;
+  const tasks = readTasks();
+  let count = 0;
+  (tasks.deployed || []).forEach(t => {
+    if (t.archivedAt) return;
+    const deployTime = t.deployedAt ? new Date(t.deployedAt).getTime() : 0;
+    if (deployTime && deployTime < cutoff) {
+      t.archivedAt = new Date().toISOString();
+      count++;
+    }
+  });
+  if (count > 0) writeTasks(tasks);
+  res.json({ archived: count });
 });
 
 app.delete('/api/tasks/:id', (req, res) => {

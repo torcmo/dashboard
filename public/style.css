@@ -207,6 +207,21 @@ a{color:var(--accent);text-decoration:none}
 .pipeline-stats{display:flex;justify-content:center;gap:20px;font-size:.72rem;color:var(--text-dim)}
 .pipe-stat strong{color:var(--text);font-weight:700}
 
+/* === Archive Controls === */
+.archive-controls{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.archive-toggle-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:5px 12px;color:var(--text-muted);font-size:.75rem;cursor:pointer;font-family:inherit;transition:all .15s}
+.archive-toggle-btn:hover{border-color:var(--accent);color:var(--text)}
+.archive-all-btn{background:rgba(246,73,13,.1);border:1px solid rgba(246,73,13,.3);border-radius:6px;
+  padding:5px 12px;color:var(--accent);font-size:.75rem;cursor:pointer;font-family:inherit;transition:all .15s}
+.archive-all-btn:hover{background:rgba(246,73,13,.2);border-color:var(--accent)}
+.archive-banner{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.3);border-radius:6px;
+  padding:8px 14px;margin-bottom:10px;color:var(--orange);font-size:.78rem;text-align:center}
+.archive-btn,.unarchive-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;
+  font-size:.75rem;opacity:0;transition:opacity .15s;padding:0 2px}
+.kanban-card:hover .archive-btn,.kanban-card:hover .unarchive-btn{opacity:1}
+.archive-btn:hover{color:var(--orange)}.unarchive-btn:hover{color:var(--green)}
+
 /* === Add Task Form === */
 .add-task-form{margin-bottom:12px}
 .add-task-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}

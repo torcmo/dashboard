@@ -532,10 +532,16 @@ const COL_COLORS = {
 const PRIORITY_BADGE = { high: '\uD83D\uDD34', medium: '\uD83D\uDFE1', low: '\u26AA' };
 let tasksData = {};
 PIPELINE_COLS.forEach(c => tasksData[c] = []);
+let archiveView = false;
 
 async function loadTasks() {
-  tasksData = await fetch('/api/tasks').then(r => r.json());
+  const qs = archiveView ? '?archived=true' : '';
+  tasksData = await fetch('/api/tasks' + qs).then(r => r.json());
   renderKanban();
+}
+
+async function autoArchiveDeployed() {
+  try { await fetch('/api/tasks/archive-deployed?days=30', { method: 'POST' }); } catch {}
 }
 
 function taskAge(created) {
@@ -565,6 +571,8 @@ function renderCardHTML(t, col) {
   p.push('<span class="card-drag-handle">\u2847</span>');
   p.push('<span class="card-title">' + escHtml(t.title) + '</span>');
   if (t.priority) p.push('<span class="card-priority" title="' + escAttr(t.priority) + '">' + (PRIORITY_BADGE[t.priority] || '') + '</span>');
+  if (col === 'deployed' && !archiveView) p.push('<button class="archive-btn" data-id="' + escAttr(t.id) + '" title="Archive">\uD83D\uDCE6</button>');
+  if (archiveView) p.push('<button class="unarchive-btn" data-id="' + escAttr(t.id) + '" title="Unarchive">\u21A9</button>');
   p.push('<button class="delete-btn" data-id="' + escAttr(t.id) + '" title="Delete">&times;</button>');
   p.push('</div>');
   if (t.labels && t.labels.length) {
@@ -646,7 +654,15 @@ function renderAddTaskForm() {
 }
 
 function renderKanbanHTML() {
-  const parts = [renderPipelineSummary(), renderAddTaskForm(), '<div class="kanban">'];
+  const parts = [renderPipelineSummary()];
+  // Archive controls bar
+  parts.push('<div class="archive-controls">');
+  parts.push('<button class="archive-toggle-btn" id="archive-toggle-btn">' + (archiveView ? '\uD83D\uDCE6 Hide Archive' : '\uD83D\uDCE6 Show Archive') + '</button>');
+  if (!archiveView) parts.push('<button class="archive-all-btn" id="archive-all-deployed-btn">Archive All Deployed</button>');
+  parts.push('</div>');
+  if (archiveView) parts.push('<div class="archive-banner">Showing archived cards</div>');
+  parts.push(renderAddTaskForm());
+  parts.push('<div class="kanban">');
   PIPELINE_COLS.forEach(function(col) {
     parts.push('<div class="kanban-col col-' + col + '" data-col="' + col + '" id="kanban-col-' + col + '">');
     parts.push('<div class="kanban-col-header" style="border-top:3px solid ' + COL_COLORS[col] + '">');
@@ -681,6 +697,45 @@ function setupKanbanEvents(ctx) {
   setupQAButtons(ctx);
   setupPipelineScroll(ctx);
   setupCardClick(ctx);
+  setupArchiveButtons(ctx);
+}
+
+function setupArchiveButtons(ctx) {
+  // Archive toggle
+  const toggleBtn = $('#archive-toggle-btn', ctx);
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', async () => {
+      archiveView = !archiveView;
+      await loadTasks();
+    });
+  }
+  // Archive All Deployed
+  const archiveAllBtn = $('#archive-all-deployed-btn', ctx);
+  if (archiveAllBtn) {
+    archiveAllBtn.addEventListener('click', async () => {
+      await fetch('/api/tasks/archive-deployed?days=0', { method: 'POST' });
+      showToast('Archived all deployed cards');
+      await loadTasks();
+    });
+  }
+  // Per-card archive buttons
+  $$('.archive-btn', ctx).forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await fetch('/api/tasks/' + btn.dataset.id + '/archive', { method: 'PUT' });
+      showToast('Card archived');
+      await loadTasks();
+    });
+  });
+  // Per-card unarchive buttons
+  $$('.unarchive-btn', ctx).forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await fetch('/api/tasks/' + btn.dataset.id + '/unarchive', { method: 'PUT' });
+      showToast('Card restored');
+      await loadTasks();
+    });
+  });
 }
 
 function setupCardClick(ctx) {
@@ -3142,6 +3197,9 @@ async function init() {
   // Set up hash routing
   window.addEventListener('hashchange', navigate);
   navigate();
+
+  // Auto-archive deployed cards older than 30 days on load
+  await autoArchiveDeployed();
 
   // Load all data (including pipeline stats on overview)
   await Promise.all([loadSystem(), loadUsage(), loadCron(), loadTasks(), loadPipelineStats(), loadKnownRepos()]);
