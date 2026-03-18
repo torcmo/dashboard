@@ -1,142 +1,42 @@
 {
-  "backlog": [],
-  "building": [],
+  "backlog": [
+    {
+      "id": "mmvpbuj31xdt",
+      "title": "Dashboard: Live Claude Code stream in card detail modal (SSE)",
+      "created": "2026-03-18",
+      "repo": "torcmo/dashboard",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "kanban",
+        "ux",
+        "sse"
+      ],
+      "branch": "feature/mmvpbuj31xdt-dashboard-live-claude-code-stream-in-car"
+    }
+  ],
+  "building": [
+    {
+      "id": "mmvp5gnkq2o5",
+      "title": "Dashboard: Kanban archive system (auto-archive deployed cards + toggle)",
+      "created": "2026-03-18",
+      "repo": "torcmo/dashboard",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "kanban",
+        "ux"
+      ],
+      "branch": "feature/mmvp5gnkq2o5",
+      "startedAt": "2026-03-18T12:35:35+05:30",
+      "assignee": "claude-code"
+    }
+  ],
   "pr_open": [],
   "code_review": [],
   "qa": [],
   "staging": [],
-  "merged": [
-    {
-      "id": "dash-01",
-      "title": "Dashboard: Upgrade to match MCC design quality",
-      "created": "2026-03-17",
-      "repo": "torcmo/dashboard",
-      "branch": "feature/dash-01-design-upgrade",
-      "priority": "high",
-      "labels": [
-        "dashboard",
-        "frontend"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-17T14:00:00Z"
-    },
-    {
-      "id": "mcc-debug",
-      "title": "MCC: Bug fixes + full test pass (all 8 pages verified)",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/mcc-debug-fixes",
-      "priority": "high",
-      "labels": [
-        "mcc",
-        "bugfix"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-17T12:00:00Z"
-    },
-    {
-      "id": "mcc-ux",
-      "title": "MCC: Award-winning UI redesign",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/mcc-ux-redesign",
-      "priority": "high",
-      "labels": [
-        "mcc",
-        "frontend",
-        "ux"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-17T11:00:00Z"
-    },
-    {
-      "id": "d-01",
-      "title": "Dashboard: Initial build (health, usage, cron, kanban, terminal)",
-      "created": "2026-03-16",
-      "repo": "torcmo/dashboard",
-      "branch": "feature/d-01-initial-build",
-      "priority": "high",
-      "labels": [
-        "dashboard",
-        "backend",
-        "frontend"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-16T18:00:00Z"
-    },
-    {
-      "id": "d-02",
-      "title": "Dashboard: Wire API usage to real OpenClaw logs",
-      "created": "2026-03-16",
-      "repo": "torcmo/dashboard",
-      "branch": "feature/d-02-api-usage",
-      "priority": "medium",
-      "labels": [
-        "dashboard",
-        "backend"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-16T20:00:00Z"
-    },
-    {
-      "id": "d-03",
-      "title": "Dashboard: Cron job management controls",
-      "created": "2026-03-16",
-      "repo": "torcmo/dashboard",
-      "branch": "feature/d-03-cron-management",
-      "priority": "medium",
-      "labels": [
-        "dashboard",
-        "backend"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-16T22:00:00Z"
-    },
-    {
-      "id": "d-04",
-      "title": "Dashboard: Claude Code terminal with live SSE streaming",
-      "created": "2026-03-17",
-      "repo": "torcmo/dashboard",
-      "branch": "feature/d-04-terminal-sse",
-      "priority": "high",
-      "labels": [
-        "dashboard",
-        "frontend"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-17T08:00:00Z"
-    },
-    {
-      "id": "d-05",
-      "title": "Dashboard: Tor.ai rebrand (colors, Lato font, logo)",
-      "created": "2026-03-17",
-      "repo": "torcmo/dashboard",
-      "branch": "feature/d-05-rebrand",
-      "priority": "medium",
-      "labels": [
-        "dashboard",
-        "frontend",
-        "branding"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-17T09:00:00Z"
-    },
-    {
-      "id": "mcc-build",
-      "title": "MCC: Full app build (8 pages, Express backend, seed data)",
-      "created": "2026-03-17",
-      "repo": "torcmo/marketing-command-center",
-      "branch": "feature/mcc-build",
-      "priority": "high",
-      "labels": [
-        "mcc",
-        "backend",
-        "frontend"
-      ],
-      "assignee": "claude-code",
-      "mergedAt": "2026-03-17T10:00:00Z"
-    }
-  ],
+  "merged": [],
   "deployed": [
     {
       "id": "mmvkhgaot5ff",
@@ -270,6 +170,145 @@
       "buildSessionId": "wild-ember",
       "startedAt": "2026-03-17T10:00:00Z",
       "deployedAt": "2026-03-18T06:18:37.306Z"
+    },
+    {
+      "id": "dash-01",
+      "title": "Dashboard: Upgrade to match MCC design quality",
+      "created": "2026-03-17",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/dash-01-design-upgrade",
+      "priority": "high",
+      "labels": [
+        "dashboard",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T14:00:00Z",
+      "deployedAt": "2026-03-18T06:23:33.971Z"
+    },
+    {
+      "id": "mcc-debug",
+      "title": "MCC: Bug fixes + full test pass (all 8 pages verified)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/mcc-debug-fixes",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "bugfix"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T12:00:00Z",
+      "deployedAt": "2026-03-18T06:23:33.981Z"
+    },
+    {
+      "id": "mcc-ux",
+      "title": "MCC: Award-winning UI redesign",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/mcc-ux-redesign",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "frontend",
+        "ux"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T11:00:00Z",
+      "deployedAt": "2026-03-18T06:23:33.994Z"
+    },
+    {
+      "id": "d-01",
+      "title": "Dashboard: Initial build (health, usage, cron, kanban, terminal)",
+      "created": "2026-03-16",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-01-initial-build",
+      "priority": "high",
+      "labels": [
+        "dashboard",
+        "backend",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-16T18:00:00Z",
+      "deployedAt": "2026-03-18T06:23:34.006Z"
+    },
+    {
+      "id": "d-02",
+      "title": "Dashboard: Wire API usage to real OpenClaw logs",
+      "created": "2026-03-16",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-02-api-usage",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "backend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-16T20:00:00Z",
+      "deployedAt": "2026-03-18T06:23:34.017Z"
+    },
+    {
+      "id": "d-03",
+      "title": "Dashboard: Cron job management controls",
+      "created": "2026-03-16",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-03-cron-management",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "backend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-16T22:00:00Z",
+      "deployedAt": "2026-03-18T06:23:34.030Z"
+    },
+    {
+      "id": "d-04",
+      "title": "Dashboard: Claude Code terminal with live SSE streaming",
+      "created": "2026-03-17",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-04-terminal-sse",
+      "priority": "high",
+      "labels": [
+        "dashboard",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T08:00:00Z",
+      "deployedAt": "2026-03-18T06:23:34.041Z"
+    },
+    {
+      "id": "d-05",
+      "title": "Dashboard: Tor.ai rebrand (colors, Lato font, logo)",
+      "created": "2026-03-17",
+      "repo": "torcmo/dashboard",
+      "branch": "feature/d-05-rebrand",
+      "priority": "medium",
+      "labels": [
+        "dashboard",
+        "frontend",
+        "branding"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T09:00:00Z",
+      "deployedAt": "2026-03-18T06:23:34.051Z"
+    },
+    {
+      "id": "mcc-build",
+      "title": "MCC: Full app build (8 pages, Express backend, seed data)",
+      "created": "2026-03-17",
+      "repo": "torcmo/marketing-command-center",
+      "branch": "feature/mcc-build",
+      "priority": "high",
+      "labels": [
+        "mcc",
+        "backend",
+        "frontend"
+      ],
+      "assignee": "claude-code",
+      "mergedAt": "2026-03-17T10:00:00Z",
+      "deployedAt": "2026-03-18T06:23:34.065Z"
     }
   ]
 }
