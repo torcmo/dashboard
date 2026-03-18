@@ -1514,8 +1514,23 @@ app.get('/api/claude/stream', (req, res) => {
   }
   res.write(`data: ${JSON.stringify({ type: 'status', status })}\n\n`);
 
+  // Keepalive ping every 15s + periodic idle check
+  const keepalive = setInterval(() => {
+    try {
+      res.write(': keepalive\n\n');
+      // Check if build went idle since last check
+      const cur = readClaudeStatus();
+      const isRunning = (claudeProcess && !claudeProcess.killed) ||
+        (cur.status === 'running' && cur.pid && (() => { try { process.kill(cur.pid, 0); return true; } catch { return false; } })());
+      if (!isRunning) {
+        res.write(`data: ${JSON.stringify({ type: 'status', status: 'idle' })}\n\n`);
+      }
+    } catch {}
+  }, 15000);
+
   claudeSSEClients.push(res);
   req.on('close', () => {
+    clearInterval(keepalive);
     claudeSSEClients = claudeSSEClients.filter(c => c !== res);
   });
 });

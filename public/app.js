@@ -790,12 +790,14 @@ function showTaskDetailModal(task, col) {
   }).join('');
 
   let buildingTerminal = '';
-  if (isBuilding && task.buildSessionId) {
-    buildingTerminal = '<div style="margin-top:16px"><div style="font-weight:700;margin-bottom:8px;color:var(--accent)">🔧 Build Log</div>' +
-      '<pre id="task-build-log" style="background:#0a0a0a;border:1px solid var(--border);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;font-size:12px;color:#3fb950;font-family:monospace;white-space:pre-wrap">Loading build logs...</pre></div>';
-  } else if (isBuilding) {
-    buildingTerminal = '<div style="margin-top:16px;padding:12px;background:rgba(246,73,13,0.1);border:1px solid var(--accent);border-radius:8px;color:var(--accent)">' +
-      '🔧 Build in progress — Claude Code is working on this task</div>';
+  if (isBuilding) {
+    buildingTerminal = '<div class="modal-terminal-wrap">' +
+      '<div class="modal-terminal-header">' +
+        '<span class="modal-terminal-title">Claude Code Output</span>' +
+        '<span class="modal-live-dot" id="modal-live-dot"><span class="modal-live-pulse"></span> Live</span>' +
+      '</div>' +
+      '<pre class="modal-terminal-output" id="modal-terminal-output">Connecting to build stream...</pre>' +
+    '</div>';
   }
 
   const modal = document.createElement('div');
@@ -815,26 +817,146 @@ function showTaskDetailModal(task, col) {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  // If building with session ID, try to load logs
-  if (isBuilding && task.buildSessionId) {
-    loadBuildLogs(task.buildSessionId);
+  // If building, connect live SSE stream
+  if (isBuilding) {
+    connectModalStream(overlay);
   }
 }
 
-async function loadBuildLogs(sessionId) {
-  const logEl = document.getElementById('task-build-log');
-  if (!logEl) return;
-  try {
-    const r = await fetch('/api/claude/log');
-    if (r.ok) {
-      const text = await r.text();
-      logEl.textContent = text || '(no output yet)';
-      logEl.scrollTop = logEl.scrollHeight;
-    } else {
-      logEl.textContent = '(build logs unavailable)';
+// --- Modal Live SSE Stream ---
+let modalSSE = null;
+const MODAL_MAX_LINES = 200;
+
+const TOOL_ICONS = {
+  'Read': '📖', 'Write': '✏️', 'Edit': '🔧', 'Bash': '⚡',
+  'Grep': '🔍', 'Glob': '📂', 'Agent': '🤖', 'TodoWrite': '📋'
+};
+const TOOL_PATTERN = /\b(Read|Write|Edit|Bash|Grep|Glob|Agent|TodoWrite)\s*\(/;
+
+function connectModalStream(overlay) {
+  const output = document.getElementById('modal-terminal-output');
+  const liveDot = document.getElementById('modal-live-dot');
+  if (!output) return;
+
+  let lineCount = 0;
+
+  if (modalSSE) modalSSE.close();
+  modalSSE = new EventSource('/api/claude/stream');
+
+  modalSSE.onmessage = function(event) {
+    let data;
+    try { data = JSON.parse(event.data); } catch { return; }
+
+    if (data.type === 'connected') {
+      output.textContent = '';
     }
-  } catch {
-    logEl.textContent = '(could not connect to build log)';
+
+    if (data.type === 'history' && data.content) {
+      const lines = data.content.split('\n');
+      const trimmed = lines.slice(-MODAL_MAX_LINES);
+      lineCount = trimmed.length;
+      output.textContent = trimmed.join('\n');
+      output.scrollTop = output.scrollHeight;
+    }
+
+    if (data.type === 'output') {
+      const text = data.content;
+      const newLines = text.split('\n');
+      lineCount += newLines.length - 1;
+
+      // Trim excess lines from top
+      if (lineCount > MODAL_MAX_LINES) {
+        const allText = output.textContent + text;
+        const allLines = allText.split('\n');
+        while (output.firstChild) output.removeChild(output.firstChild);
+        const keep = allLines.slice(-MODAL_MAX_LINES);
+        lineCount = keep.length;
+        appendColoredLines(output, keep.join('\n'), data.stream);
+      } else {
+        appendColoredLines(output, text, data.stream);
+      }
+      output.scrollTop = output.scrollHeight;
+    }
+
+    if (data.type === 'status') {
+      if (data.status === 'idle' || data.status === 'exited') {
+        if (liveDot) {
+          liveDot.textContent = '';
+          const checkSpan = document.createElement('span');
+          checkSpan.className = 'modal-done-icon';
+          checkSpan.textContent = '✓';
+          liveDot.appendChild(checkSpan);
+          liveDot.appendChild(document.createTextNode(' Build complete'));
+          liveDot.classList.add('done');
+          liveDot.classList.remove('live');
+        }
+        const marker = document.createElement('span');
+        marker.className = 'modal-term-success';
+        marker.textContent = '\n\n── Build complete ──\n';
+        output.appendChild(marker);
+        output.scrollTop = output.scrollHeight;
+        if (modalSSE) { modalSSE.close(); modalSSE = null; }
+      } else if (data.status === 'error') {
+        if (liveDot) {
+          liveDot.textContent = '● Error';
+          liveDot.classList.add('error');
+        }
+      } else if (data.status === 'running') {
+        if (liveDot) {
+          liveDot.classList.add('live');
+          liveDot.classList.remove('done', 'error');
+        }
+      }
+    }
+  };
+
+  modalSSE.onerror = function() {
+    if (liveDot) {
+      liveDot.textContent = '● Disconnected';
+      liveDot.classList.add('error');
+      liveDot.classList.remove('live');
+    }
+  };
+
+  // Clean up SSE when modal closes
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay || e.target.closest('.task-modal-close') || e.target.closest('.task-modal-footer button')) {
+      if (modalSSE) { modalSSE.close(); modalSSE = null; }
+    }
+  });
+
+  // Also clean up if overlay is removed from DOM
+  const obs = new MutationObserver(function() {
+    if (!document.body.contains(overlay)) {
+      if (modalSSE) { modalSSE.close(); modalSSE = null; }
+      obs.disconnect();
+    }
+  });
+  obs.observe(document.body, { childList: true });
+}
+
+function appendColoredLines(container, text, stream) {
+  if (stream === 'stderr') {
+    const span = document.createElement('span');
+    span.className = 'modal-term-error';
+    span.textContent = text;
+    container.appendChild(span);
+    return;
+  }
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) container.appendChild(document.createTextNode('\n'));
+    const line = lines[i];
+    const match = line.match(TOOL_PATTERN);
+    if (match) {
+      const icon = TOOL_ICONS[match[1]] || '⚡';
+      const span = document.createElement('span');
+      span.className = 'modal-term-tool';
+      span.textContent = icon + ' ' + line;
+      container.appendChild(span);
+    } else {
+      container.appendChild(document.createTextNode(line));
+    }
   }
 }
 

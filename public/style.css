@@ -921,11 +921,30 @@ a{color:var(--accent);text-decoration:none}
 
 /* Task Detail Modal */
 .task-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn .15s ease}
-.task-modal{background:var(--bg-card,#1a1a1a);border:1px solid var(--border,#333);border-radius:12px;width:90%;max-width:600px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.task-modal{background:var(--bg-card,#1a1a1a);border:1px solid var(--border,#333);border-radius:12px;width:90%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
 .task-modal-header{display:flex;justify-content:space-between;align-items:flex-start;padding:20px 24px 12px;border-bottom:1px solid var(--border,#333)}
 .task-modal-close{background:none;border:none;color:var(--text-dim,#888);font-size:24px;cursor:pointer;padding:0 4px;line-height:1}
 .task-modal-close:hover{color:#fff}
 .task-modal-body{padding:16px 24px}
 .task-modal-footer{padding:12px 24px 20px;display:flex;justify-content:flex-end;gap:8px}
+/* Modal Live Terminal Panel */
+.modal-terminal-wrap{margin-top:16px;border:1px solid #2a2a2a;border-radius:8px;overflow:hidden}
+.modal-terminal-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#151515;border-bottom:1px solid #2a2a2a}
+.modal-terminal-title{font-size:12px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.modal-live-dot{font-size:11px;font-weight:600;color:#6b7280;display:flex;align-items:center;gap:6px}
+.modal-live-dot.live{color:#3fb950}
+.modal-live-dot.done{color:#3fb950}
+.modal-live-dot.error{color:#f87171}
+.modal-live-pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;animation:modalPulse 1.5s ease-in-out infinite}
+.modal-live-dot.done .modal-live-pulse,.modal-live-dot.error .modal-live-pulse{animation:none;display:none}
+.modal-done-icon{color:#3fb950;font-weight:700}
+@keyframes modalPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.modal-terminal-output{margin:0;padding:12px;background:#0d0d0d;font-family:'SF Mono','Fira Code','Cascadia Code',Menlo,Consolas,monospace;font-size:12px;line-height:1.6;color:#d4d4d4;white-space:pre-wrap;word-break:break-word;overflow-y:auto;height:300px;scrollbar-width:thin;scrollbar-color:#333 transparent}
+.modal-terminal-output::-webkit-scrollbar{width:6px}
+.modal-terminal-output::-webkit-scrollbar-track{background:transparent}
+.modal-terminal-output::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+.modal-term-tool{color:#3fb950;font-weight:600}
+.modal-term-error{color:#f87171}
+.modal-term-success{color:#3fb950;font-weight:700}
 .kanban-card{transition:transform .1s,box-shadow .1s}
 .kanban-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.3)}

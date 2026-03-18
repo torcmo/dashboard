@@ -1,5 +1,6 @@
 {
-  "backlog": [
+  "backlog": [],
+  "building": [
     {
       "id": "mmvpbuj31xdt",
       "title": "Dashboard: Live Claude Code stream in card detail modal (SSE)",
@@ -12,10 +13,14 @@
         "ux",
         "sse"
       ],
-      "branch": "feature/mmvpbuj31xdt-dashboard-live-claude-code-stream-in-car"
+      "branch": "feature/mmvpbuj31xdt",
+      "startedAt": "2026-03-18T12:45:37+05:30",
+      "assignee": "claude-code"
     }
   ],
-  "building": [
+  "pr_open": [],
+  "code_review": [],
+  "qa": [
     {
       "id": "mmvp5gnkq2o5",
       "title": "Dashboard: Kanban archive system (auto-archive deployed cards + toggle)",
@@ -29,12 +34,11 @@
       ],
       "branch": "feature/mmvp5gnkq2o5",
       "startedAt": "2026-03-18T12:35:35+05:30",
-      "assignee": "claude-code"
+      "assignee": "claude-code",
+      "prCreatedAt": "2026-03-18T07:12:03.053Z",
+      "deployedAt": "2026-03-18T12:43:06+05:30"
     }
   ],
-  "pr_open": [],
-  "code_review": [],
-  "qa": [],
   "staging": [],
   "merged": [],
   "deployed": [
